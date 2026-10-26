@@ -1,6 +1,7 @@
 import './crypto-polyfill'
 import { createAuthClient } from '@neondatabase/auth'
 import { BetterAuthVanillaAdapter } from '@neondatabase/auth/vanilla/adapters'
+import Constants from 'expo-constants'
 import * as SecureStore from 'expo-secure-store'
 import { Platform } from 'react-native'
 import { getApiUrl } from './config'
@@ -9,6 +10,11 @@ const COOKIE_KEY = 'anitka.auth.cookies'
 const TOKEN_KEY = 'anitka.auth.jwt'
 let memoryCookie = ''
 let memoryToken = ''
+let localSessionAvailable = false
+
+function traceLocalAuth(message: string): void {
+  if (usesLocalAuth()) console.info(`[mobile auth] ${message}`)
+}
 
 async function readCookie(): Promise<string> {
   if (Platform.OS === 'web') return memoryCookie
@@ -36,7 +42,9 @@ async function writeToken(value: string): Promise<void> {
 
 function setCookieHeaders(headers: Headers): string[] {
   const nativeHeaders = headers as Headers & { getSetCookie?: () => string[] }
-  if (nativeHeaders.getSetCookie) return nativeHeaders.getSetCookie()
+  const getSetCookie = nativeHeaders.getSetCookie
+  const cookies = typeof getSetCookie === 'function' ? getSetCookie.call(nativeHeaders) : []
+  if (cookies.length > 0) return cookies
   const combined = headers.get('set-cookie')
   return combined ? combined.split(/,(?=\s*[^;,=\s]+=[^;,]*)/) : []
 }
@@ -61,31 +69,35 @@ function mergeCookies(existing: string, updates: string[]): string {
   return [...cookies].map(([name, value]) => `${name}=${value}`).join('; ')
 }
 
-const nativeFetch: typeof fetch = async (input, init) => {
-  const headers = new Headers(init?.headers)
-  headers.set('origin', getApiUrl())
-  const cookie = await readCookie()
-  if (cookie) headers.set('cookie', cookie)
-  const response = await fetch(input, { ...init, headers, credentials: 'omit' })
-  const updates = setCookieHeaders(response.headers)
-  if (updates.length > 0) await writeCookie(mergeCookies(cookie, updates))
-  const token = response.headers.get('set-auth-jwt')
-  if (token) await writeToken(token)
-  return response
-}
-
-type CustomFetchImpl = NonNullable<
-  NonNullable<NonNullable<Parameters<typeof BetterAuthVanillaAdapter>[0]>['fetchOptions']>['customFetchImpl']
->
-
 function getAuthClient() {
-  return createAuthClient(`${getApiUrl()}/api/auth`, {
-    // TypeScript 6 types the auth client's fetch with DOM `RequestInfo`, which lacks `URL`; React Native's
-    // fetch accepts it, so the cast only reconciles the two declarations.
+  const localAuth = usesLocalAuth()
+  traceLocalAuth('Creating auth client.')
+  const client = createAuthClient(`${getApiUrl()}/api/auth`, {
     adapter: BetterAuthVanillaAdapter({
-      fetchOptions: { customFetchImpl: nativeFetch as unknown as CustomFetchImpl },
+      // NeonAuthAdapterCore replaces customFetchImpl internally, so transport settings must use its
+      // supported fetch options. The local API requires this trusted origin and React Native's cookie jar.
+      fetchOptions: {
+        credentials: localAuth ? 'include' : 'omit',
+        headers: { origin: getApiUrl() },
+        onRequest: async (request) => {
+          traceLocalAuth('Auth request started.')
+          const cookie = await readCookie()
+          if (cookie) request.headers.set('cookie', cookie)
+        },
+        onSuccess: async ({ response }) => {
+          traceLocalAuth('Auth response succeeded; persisting session data.')
+          const cookie = await readCookie()
+          const updates = setCookieHeaders(response.headers)
+          if (updates.length > 0) await writeCookie(mergeCookies(cookie, updates))
+          const token = response.headers.get('set-auth-jwt')
+          if (token) await writeToken(token)
+          traceLocalAuth('Auth response session data persisted.')
+        },
+      },
     }),
   })
+  traceLocalAuth('Auth client created.')
+  return client
 }
 
 type SessionResponse = {
@@ -95,15 +107,23 @@ type SessionResponse = {
 
 export async function getAccessToken(): Promise<string | null> {
   try {
+    if (usesLocalAuth() && (localSessionAvailable || (await readCookie()))) {
+      traceLocalAuth('Using the existing local session without another SDK lookup.')
+      return null
+    }
     // The server-side session cache returns an opaque session ID in `session.token`.
     // A fresh lookup bypasses that cache and lets Neon Auth attach `set-auth-jwt`,
-    // which nativeFetch stores in SecureStore for authenticated API requests.
+    // which the adapter's onSuccess hook stores in SecureStore for authenticated API requests.
+    traceLocalAuth('Calling getSession.')
     const result = (await getAuthClient().getSession({ query: { disableCookieCache: true } })) as SessionResponse
+    traceLocalAuth('getSession returned.')
     const savedToken = await readToken()
     if (result.error) {
+      localSessionAvailable = false
       if (isJwt(savedToken)) return savedToken
       throw new Error(result.error.message || 'Nepodařilo se ověřit přihlášení.')
     }
+    localSessionAvailable = usesLocalAuth() && Boolean(result.data?.session)
     const sessionToken = result.data?.session?.token
     if (isJwt(savedToken)) return savedToken
     if (isJwt(sessionToken)) {
@@ -111,11 +131,25 @@ export async function getAccessToken(): Promise<string | null> {
       return sessionToken
     }
   } catch (error) {
+    if (usesLocalAuth()) console.error('[mobile auth] Session lookup failed in local-auth mode.', error)
+    localSessionAvailable = false
     const savedToken = await readToken()
     if (isJwt(savedToken)) return savedToken
     throw error
   }
   return null
+}
+
+export function usesLocalAuth(): boolean {
+  return Constants.expoConfig?.extra?.localAuth === true
+}
+
+export async function getStoredAuthCookie(): Promise<string> {
+  return readCookie()
+}
+
+export async function hasLocalAuthSession(): Promise<boolean> {
+  return usesLocalAuth() && (localSessionAvailable || Boolean(await readCookie()))
 }
 
 function isJwt(token: string | null | undefined): token is string {
@@ -127,10 +161,20 @@ export async function clearAccessToken(): Promise<void> {
 }
 
 export async function signIn(email: string, password: string): Promise<void> {
+  localSessionAvailable = false
   const result = await getAuthClient().signIn.email({ email, password })
   if (result.error) throw new Error(result.error.message || 'Přihlášení se nezdařilo.')
+  if (usesLocalAuth()) {
+    // A successful local sign-in already populated Better Auth's in-memory cache. On React Native,
+    // the SDK's cached getSession path calls Response.json(), which Hermes does not implement.
+    localSessionAvailable = true
+    return
+  }
   const token = await getAccessToken()
-  if (!token) throw new Error('Přihlášení se nezdařilo. Zkuste to znovu.')
+  // Local Better Auth sessions use a persisted cookie; only Neon Auth can issue the JWT used in production.
+  if (!token && !(usesLocalAuth() && ((await readCookie()) || localSessionAvailable))) {
+    throw new Error('Přihlášení se nezdařilo. Zkuste to znovu.')
+  }
 }
 
 export async function signUp(email: string, password: string, name: string): Promise<void> {
@@ -179,6 +223,7 @@ export async function verifyEmailLink(token: string): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
+  localSessionAvailable = false
   try {
     await getAuthClient().signOut()
   } finally {
@@ -192,4 +237,5 @@ export async function deleteSignedInUser(): Promise<void> {
   if (result.error) throw new Error(result.error.message || 'Přihlašovací účet se nepodařilo odstranit.')
   await writeCookie('')
   await writeToken('')
+  localSessionAvailable = false
 }

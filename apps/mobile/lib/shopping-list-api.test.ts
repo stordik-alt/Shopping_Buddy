@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const getAccessToken = vi.fn()
-vi.mock('./auth', () => ({ getAccessToken: (...args: unknown[]) => getAccessToken(...args) }))
+const getStoredAuthCookie = vi.fn()
+const usesLocalAuth = vi.fn()
+vi.mock('./auth', () => ({
+  getAccessToken: (...args: unknown[]) => getAccessToken(...args),
+  getStoredAuthCookie: (...args: unknown[]) => getStoredAuthCookie(...args),
+  usesLocalAuth: (...args: unknown[]) => usesLocalAuth(...args),
+}))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
 import { addShoppingItem, buildShoppingPlan, cancelReceiptImport, confirmReceiptReview, createShoppingList, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, getUsualItems, importManualReceipt, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, receiptImageUrl, resolveDuplicateReceipt, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, uploadReceiptFile, uploadReceiptPhoto } from './shopping-list-api'
@@ -10,6 +16,8 @@ describe('mobile shopping-list API client', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getAccessToken.mockResolvedValue('unit-test-access')
+    getStoredAuthCookie.mockResolvedValue('')
+    usesLocalAuth.mockReturnValue(false)
     vi.stubGlobal('fetch', vi.fn())
   })
 
@@ -107,6 +115,28 @@ describe('mobile shopping-list API client', () => {
     getAccessToken.mockResolvedValue(null)
     await expect(getShoppingList()).rejects.toMatchObject({ code: 'not_signed_in', status: 401 })
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('uses the stored session cookie in local auth mode when no bearer JWT is available', async () => {
+    getAccessToken.mockResolvedValue(null)
+    usesLocalAuth.mockReturnValue(true)
+    getStoredAuthCookie.mockResolvedValue('better-auth.session_token=local-session')
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ listId: 'list-1', items: [], shoppingLists: [] }), { status: 200 }))
+
+    await expect(getShoppingList()).resolves.toMatchObject({ listId: 'list-1' })
+    expect(fetch).toHaveBeenCalledWith('https://anitka.example/api/mobile/shopping-list', expect.objectContaining({
+      headers: expect.objectContaining({ Cookie: 'better-auth.session_token=local-session' }),
+    }))
+  })
+
+  it('uses the native cookie jar in local auth mode when no cookie header is exposed', async () => {
+    getAccessToken.mockResolvedValue(null)
+    usesLocalAuth.mockReturnValue(true)
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ listId: 'list-1', items: [], shoppingLists: [] }), { status: 200 }))
+
+    await expect(getShoppingList()).resolves.toMatchObject({ listId: 'list-1' })
+    expect(fetch).toHaveBeenCalledWith('https://anitka.example/api/mobile/shopping-list', expect.objectContaining({ credentials: 'include' }))
+    expect(new Headers(vi.mocked(fetch).mock.calls[0]?.[1]?.headers).get('cookie')).toBeNull()
   })
 
   it('surfaces server failures instead of returning a successful write', async () => {

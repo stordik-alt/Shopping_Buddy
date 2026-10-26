@@ -59,7 +59,8 @@ describe('POST /api/mobile/receipts/[id]', () => {
     mocks.cancelReceiptImportForHousehold.mockResolvedValue(undefined)
   })
 
-  it('requires authorization and rejects malformed identifiers and requests', async () => {
+  it('requires verified auth and rejects malformed identifiers and requests', async () => {
+    mocks.mobileUserFromRequest.mockRejectedValueOnce(new mocks.MobileRequestAuthError('not_signed_in', 401))
     const unauthorized = await POST(new Request('https://anitka.example/api/mobile/receipts/x', { method: 'POST' }), {
       params: Promise.resolve({ id: 'x' }),
     })

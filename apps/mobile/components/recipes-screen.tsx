@@ -4,6 +4,7 @@ import { MobileApiError, getPantry, getRecipe, getRecipeCollections, getRecipePr
 import { getAccessToken } from '../lib/auth'
 import { RefreshButton } from './refresh-button'
 import { useMobileTheme } from '../lib/theme'
+import { useNativeGuideTarget } from './native-guide-targets'
 import { scaleRecipeIngredients } from '../../../lib/recipes/scaling'
 import { analyzeRecipeIngredients, toRecipeShoppingItem } from '../../../lib/recipes/shopping'
 import type { PantryItem } from '../../../lib/types'
@@ -50,6 +51,7 @@ function ratingLabel(recipe: Pick<MobileRecipe, 'ratingValue' | 'ratingScale' | 
 export function RecipesScreen({ onAuthExpired, onAddToShopping }: { onAuthExpired: () => void; onAddToShopping: (items: { name: string; quantity: number; unit: ItemUnit }[]) => void }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
+  const recommendationsGuideTarget = useNativeGuideTarget('recipes-recommend')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Awaited<ReturnType<typeof searchRecipes>>['results']>([])
   const [page, setPage] = useState(1)
@@ -239,7 +241,7 @@ export function RecipesScreen({ onAuthExpired, onAddToShopping }: { onAuthExpire
             </View>
             <RefreshButton disabled={results.length === 0} loading={loading} onPress={() => void search(page)} />
           </View>
-          <ScrollView horizontal contentContainerStyle={styles.modeRow} showsHorizontalScrollIndicator={false}>{([['search', 'Hledat'], ['favorites', 'Oblíbené'], ['history', 'Nedávné'], ['recommendations', 'Podle zásob']] as [RecipeMode, string][]).map(([value, label]) => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: mode === value }} onPress={() => void openMode(value)} style={[styles.modeChip, mode === value && styles.modeChipActive]}><Text style={[styles.modeText, mode === value && styles.modeTextActive]}>{label}</Text></Pressable>)}</ScrollView>
+          <ScrollView horizontal contentContainerStyle={styles.modeRow} showsHorizontalScrollIndicator={false}>{([['search', 'Hledat'], ['favorites', 'Oblíbené'], ['history', 'Nedávné'], ['recommendations', 'Podle zásob']] as [RecipeMode, string][]).map(([value, label]) => <Pressable ref={value === 'recommendations' ? recommendationsGuideTarget : undefined} key={value} accessibilityRole="tab" accessibilityState={{ selected: mode === value }} onPress={() => void openMode(value)} style={[styles.modeChip, mode === value && styles.modeChipActive]}><Text style={[styles.modeText, mode === value && styles.modeTextActive]}>{label}</Text></Pressable>)}</ScrollView>
           {mode === 'search' ? <>
           <View style={styles.searchRow}>
             <TextInput

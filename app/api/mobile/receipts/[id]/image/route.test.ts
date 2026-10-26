@@ -29,7 +29,8 @@ describe('GET /api/mobile/receipts/[id]/image', () => {
     mocks.getReceiptFile.mockResolvedValue({ body: 'image-bytes', contentType: 'image/jpeg' })
   })
 
-  it('requires bearer auth and returns no-store bytes for the member household', async () => {
+  it('requires verified auth and returns no-store bytes for the member household', async () => {
+    mocks.mobileUserFromRequest.mockRejectedValueOnce(new mocks.MobileRequestAuthError('not_signed_in', 401))
     const unauthorized = await GET(new Request('https://anitka.example/api/mobile/receipts/' + receiptId + '/image'), params)
     expect(unauthorized.status).toBe(401)
 

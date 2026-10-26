@@ -9,6 +9,10 @@ async function expectVisibleExactText(page: import('@playwright/test').Page, tex
   }))).toBe(true)
 }
 
+async function captureParityScreenshot(page: import('@playwright/test').Page, path: string) {
+  await page.screenshot({ path, fullPage: false, animations: 'disabled' })
+}
+
 function testDatabaseUrl(): string {
   const value = process.env.DATABASE_URL?.trim()
   const testValue = process.env.TEST_DATABASE_URL?.trim()
@@ -32,6 +36,63 @@ async function markTestAccountEmailVerified(email: string) {
     // E2E uses an isolated test database and has no configured mail inbox. This test fixture
     // simulates the state reached only after a real OTP has been accepted in production.
     await client.query('UPDATE neon_auth."user" SET "emailVerified" = true WHERE lower(email) = lower($1)', [email])
+  } finally {
+    await client.end()
+  }
+}
+
+async function seedVisualAccount(email: string) {
+  const client = new Client({
+    connectionString: testDatabaseUrl(),
+    connectionTimeoutMillis: 5_000,
+    query_timeout: 10_000,
+  })
+  await client.connect()
+  try {
+    await client.query('BEGIN')
+    const account = await client.query<{ household_id: string }>(
+      `SELECT hm.household_id
+       FROM household_members hm
+       JOIN neon_auth."user" u ON u.id = hm.user_id
+       WHERE lower(u.email) = lower($1)
+       ORDER BY hm.joined_at DESC
+       LIMIT 1`,
+      [email],
+    )
+    const householdId = account.rows[0]?.household_id
+    if (!householdId) throw new Error('The visual smoke account has no household.')
+
+    const lists = await client.query<{ id: string }>(
+      'SELECT id FROM shopping_lists WHERE household_id = $1 ORDER BY created_at LIMIT 1',
+      [householdId],
+    )
+    const listId = lists.rows[0]?.id ?? (await client.query<{ id: string }>(
+      'INSERT INTO shopping_lists (household_id, name) VALUES ($1, $2) RETURNING id',
+      [householdId, 'Hlavní seznam'],
+    )).rows[0].id
+
+    for (const [name, quantity, unit, category] of [
+      ['Mléko', 2, 'ks', 'Potraviny'],
+      ['Chléb', 1, 'ks', 'Potraviny'],
+      ['Jablka', 1, 'kg', 'Potraviny'],
+    ] as const) {
+      await client.query(
+        'INSERT INTO shopping_list_items (list_id, name, quantity, unit, category) VALUES ($1, $2, $3, $4, $5)',
+        [listId, name, quantity, unit, category],
+      )
+    }
+    await client.query(
+      'INSERT INTO pantry_items (household_id, name, category, location, quantity, unit) VALUES ($1, $2, $3, $4, $5, $6)',
+      [householdId, 'Rýže', 'Potraviny', 'Spíž', 2, 'kg'],
+    )
+    await client.query(
+      'INSERT INTO expenses (household_id, amount, note, category, date) VALUES ($1, $2, $3, $4, current_date)',
+      [householdId, 685, 'Vizuální nákup', 'Potraviny'],
+    )
+    await client.query('COMMIT')
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
   } finally {
     await client.end()
   }
@@ -97,26 +158,41 @@ test.describe('critical smoke flow', () => {
       await page.getByLabel('Heslo').fill(password)
       await page.getByRole('button', { name: 'Přihlásit se' }).click()
       await expect(page).toHaveURL(/\/$/)
+      // The client updates the URL before the authenticated server render finishes. Wait for the
+      // household-backed app and first-login guide before querying the new household for fixtures.
+      await expect(page.locator('body')).toContainText('Asistent pro domácnost')
+      const guide = page.getByRole('dialog', { name: 'Průvodce aplikací' })
+      await expect(guide).toBeVisible()
+
+      // The first authenticated app render creates a household for new accounts. Seed the shared
+      // PWA/Android visual data only after that bootstrap has completed, then reload to show it.
+      await seedVisualAccount(email)
+      await page.reload()
       // The same words are in the brand (sidebar) and in the phone header, so take the first visible one.
       await expect(page.locator('body')).toContainText('Asistent pro domácnost')
       // First-time accounts automatically get Anitka's guide. Dismiss it so this test can exercise
       // navigation underneath it; the guide itself is covered by its component tests.
-      const guide = page.getByRole('dialog', { name: 'Průvodce aplikací' })
       await expect(guide).toBeVisible()
-      await guide.getByRole('button', { name: 'Přeskočit' }).click()
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.emulateMedia({ colorScheme: 'light' })
+      await page.screenshot({ path: 'test-results/mobile-ui-v2/light-390x844-guide-welcome.png', fullPage: true })
+      await guide.getByRole('button', { name: 'Začít' }).click()
+      await expect(guide.getByRole('heading', { name: 'Jak se tu pohybovat' })).toBeVisible()
+      await page.screenshot({ path: 'test-results/mobile-ui-v2/light-390x844-guide-navigation-spotlight.png', fullPage: true })
+      await guide.getByRole('button', { name: 'Zavřít průvodce' }).click()
       await expect(guide).toHaveCount(0)
 
       await page.goto('/?tab=nakup')
-      await expect(page.getByText('Nákupní seznam', { exact: true }).first()).toBeVisible()
+      await expectVisibleExactText(page, 'Nákupní seznam')
 
       await page.goto('/?tab=zasoby')
-      await expect(page.getByText('Zásoby', { exact: true }).first()).toBeVisible()
+      await expectVisibleExactText(page, 'Zásoby')
 
       await page.goto('/?tab=rozpocet')
-      await expect(page.getByText('Přehled', { exact: true }).first()).toBeVisible()
+      await expectVisibleExactText(page, 'Přehled')
 
       await page.goto('/?tab=recepty')
-      await expect(page.getByText('Recepty', { exact: true }).first()).toBeVisible()
+      await expectVisibleExactText(page, 'Recepty')
 
       const mobileViewports = [
         { width: 320, height: 844 },
@@ -128,11 +204,14 @@ test.describe('critical smoke flow', () => {
       ]
       const themes = ['light', 'dark'] as const
       const primaryTabs = [
-        ['/', 'Domů'],
-        ['/?tab=nakup', 'Nákupní seznam'],
-        ['/?tab=zasoby', 'Zásoby'],
-        ['/?tab=rozpocet', 'Přehled'],
-        ['/?tab=recepty', 'Recepty'],
+        ['/', 'Domů', 'home'],
+        ['/?tab=nakup', 'Nákupní seznam', 'shopping'],
+        ['/?tab=zasoby', 'Zásoby', 'pantry'],
+        ['/?tab=rozpocet', 'Přehled', 'budget'],
+        ['/?tab=recepty', 'Recepty', 'recipes'],
+        ['/?tab=akce', 'Akce', 'deals'],
+        ['/?tab=obchody', 'Obchody', 'stores'],
+        ['/?tab=profil', 'Profil', 'profile'],
       ] as const
 
       for (const colorScheme of themes) {
@@ -161,15 +240,64 @@ test.describe('critical smoke flow', () => {
           })
 
           if (viewport.width === 390 && viewport.height === 844) {
-            for (const [url, label] of primaryTabs) {
+            for (const [url, label, screenshotName] of primaryTabs) {
               await page.goto(url)
               await expectVisibleExactText(page, label)
               await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+              await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-${screenshotName}.png`)
               await page.screenshot({
                 path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-' + label.replaceAll(' ', '-').toLowerCase() + '.png',
                 fullPage: true,
               })
+              if (url === '/?tab=nakup') {
+                await page.getByRole('button', { name: 'Účtenky', exact: true }).first().click()
+                await expect(page.getByText('Nákup z účtenky', { exact: true })).toBeVisible()
+                await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-receipts.png`)
+                await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-uctenky.png', fullPage: true })
+              }
+              if (url === '/?tab=recepty') {
+                await page.getByRole('button', { name: 'Jídelníček', exact: true }).first().click()
+                await expect(page.getByText('Jídelníček', { exact: true }).first()).toBeVisible()
+                await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-mealplan.png`)
+                await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-jidelnicek.png', fullPage: true })
+              }
+              if (url === '/?tab=rozpocet') {
+                await page.getByRole('button', { name: 'Plánování', exact: true }).first().click()
+                await expect(page.getByText('Rozpočtové období:')).toBeVisible()
+                await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-budget-plan.png`)
+                await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-rozpocet-planovani.png', fullPage: true })
+              }
             }
+
+            await page.goto('/')
+            await expect(page.getByRole('heading', { name: 'Asistent pro domácnost', exact: true })).toBeVisible()
+            await page.getByRole('button', { name: 'Otevřít chat s Anitkou' }).click()
+            const aiChat = page.getByRole('dialog', { name: 'Chat s Anitkou' })
+            await expect(aiChat).toBeVisible()
+            await expect(aiChat.getByText('Ahoj, jsem Anitka. Chat je připravený, ale AI asistent zatím není připojený, takže teď dotazy neumím zpracovat.')).toBeVisible()
+            await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-ai-chat.png`)
+            await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-ai-chat.png', fullPage: true })
+            await page.getByRole('button', { name: 'Zavřít' }).click()
+
+            await page.getByRole('button', { name: 'Účet a nastavení' }).click()
+            await page.getByRole('menuitem', { name: 'Průvodce aplikací' }).click()
+            const reopenedGuide = page.getByRole('dialog', { name: 'Průvodce aplikací' })
+            await expect(reopenedGuide).toBeVisible()
+            await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-guide-welcome.png`)
+            await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-guide-welcome.png', fullPage: true })
+            await reopenedGuide.getByRole('button', { name: 'Začít' }).click()
+            await expect(reopenedGuide.getByRole('heading', { name: 'Jak se tu pohybovat' })).toBeVisible()
+            await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-guide-spotlight.png`)
+            await page.screenshot({ path: 'test-results/mobile-ui-v2/' + colorScheme + '-390x844-guide-navigation-spotlight.png', fullPage: true })
+            await reopenedGuide.getByRole('button', { name: 'Další' }).click()
+            await expect(reopenedGuide.getByRole('heading', { name: 'Domů: dnešní přehled' })).toBeVisible()
+            await reopenedGuide.getByRole('button', { name: 'Další' }).click()
+            await expect(reopenedGuide.getByRole('heading', { name: 'Zvonek: dám vám vědět' })).toBeVisible()
+            await reopenedGuide.getByRole('button', { name: 'Další' }).click()
+            await expect(reopenedGuide.getByRole('heading', { name: 'Nákupní seznam: co máme koupit' })).toBeVisible()
+            await expect(page.getByText('Sem napište, co chybí', { exact: true })).toBeVisible()
+            await captureParityScreenshot(page, `test-results/mobile-parity/pwa/${colorScheme}-guide-feature-spotlight.png`)
+            await reopenedGuide.getByRole('button', { name: 'Zavřít průvodce' }).click()
           }
         }
       }

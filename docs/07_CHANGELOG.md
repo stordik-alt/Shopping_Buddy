@@ -1,3 +1,25 @@
+# Shopping Buddy — Change Log
+
+## 2026-10-25 — Vizuální kontrola Expo aplikace a interaktivní průvodce
+
+- Dosavadní Playwright smoke testy snímaly PWA při mobilních šířkách, ale nezachycovaly její AI chat ani průvodce a nespouštěly nativní aplikaci.
+- Playwright a Android emulátor nyní připravují 15 párových snímků hlavních obrazovek, AI chatu a průvodce ve světlém i tmavém motivu při stejné logické velikosti 390 × 844 px. CI kontroluje úplnost dvojic a vytváří obrazové dvojice i přehledové kontaktní listy pro kontrolu.
+- Průvodce snímá úvod, zvýrazněnou navigaci a krok nákupního seznamu, který skutečně přepne obrazovku a ukáže pole pro novou položku. Nativní průvodce přepíná příslušné obrazovky, zvýrazňuje navigaci i ovládací prvek a zachovává stručný i podrobný průchod.
+- Nativní chat používá stejné oříznutí maskota jako PWA a řadí ho na střed zprávy. Android se kontroluje v emulátoru CI; iOS zůstává samostatnou ruční kontrolou.
+- Testovací Android build povoluje HTTP jen přes Expo config plugin při `ANITKA_E2E_CLEAR_TEXT=1`, aby emulátor mohl volat izolovaný lokální server. Běžná aplikace toto oprávnění nedostává. Emulátor používá `adb reverse` a origin `127.0.0.1`, který odpovídá důvěryhodnému originu lokálního Better Auth. V tomto režimu mobilní klient používá Better Auth cookie; mimo něj zůstává vyžadován Neon JWT.
+- Po lokálním přihlášení Expo aplikace znovu nevolá SDK `getSession`: ověřenou relaci převezme z cookie nebo stavu právě dokončeného přihlášení. Tím se v Hermes obchází SDK cache cesta založená na `Response.json()`, kterou React Native neposkytuje. Ověřeno typovou kontrolou a 32 cílenými testy auth/API; Android CI průchod se opakuje.
+- Mobilní auth klient ukládá cookies z odpovědi Neon Auth a posílá je při následném ověření relace. API klient přidává ruční `Cookie` hlavičku jen při neprázdné hodnotě; prázdná hlavička by přebila cookie jar React Native a mohla odhlásit relaci při otevření účtenek. Ověřeno cílenými testy auth/API; úplný Android screenshot průchod po opravě čeká na CI.
+- Mobilní receipt routes nyní předávají přihlášení společnému `mobileUserFromRequest` helperu a přijímají ověřený bearer token i session cookie. Dřívější povinná kontrola hlavičky `Authorization` blokovala lokální nativní Better Auth session a při otevření účtenek spustila odhlášení. Testovaný produkční klient dál posílá Neon JWT; změna zpřístupňuje cookie session pouze po serverovém ověření a zachovává odvození domácnosti podle uživatele.
+- Emulátorový release build kompiluje jen `x86_64` a cachuje Gradle závislosti, protože CI ověřuje Android emulátor této architektury.
+- PWA audit zásob omezuje čekání jednotlivých akcí na 15 sekund a celý průchod na 5 minut; chybějící ovládací prvek tak ukáže selhání místo vyčerpání celého CI timeoutu.
+
+## 2026-10-25 — Mobilní parita: zásoby, recepty, jídelníček, účtenky a rozpočet
+
+- Mobilní aplikace doplňuje hlavní funkční mezery proti PWA: úpravy klasifikace a balení zásob, automatické zařazení, označení jídla jako uvařeného s idempotentním odečtem surovin, oblíbené a doporučené recepty včetně filtrování, řazení, porcí a nákupního výběru, návrhy shod účtenky se seznamem a jejich potvrzení, měsíční úspory a tempo rozpočtu s projekcí.
+- Nativní aplikace podporuje registraci, ověření e-mailu, obnovu hesla přes Neon Auth a předání konkrétního cíle při navigaci.
+- Mobilní API odvozuje účet i domácnost z ověřené autentizace a znovu používá existující serverovou logiku PWA; nebyla přidána databázová migrace.
+- Změny jsou součástí PR #622 (`cf544a94`). CI po opravě testovacích mocků prošlo včetně databázových testů, Android exportu, produkčního buildu, Playwright smoke testů, CodeQL a dependency auditu.
+
 ## 2026-10-24 — Expo účtenky: fotoaparát, galerie, PDF a ruční import
 
 - Mobilní import účtenek nabízí vyfocení, výběr podporovaného snímku z galerie, PDF/fotku přes systémový výběr souboru a ruční zadání položek.

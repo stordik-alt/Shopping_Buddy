@@ -1,0 +1,128 @@
+appId: cz.shoppingbuddy.mobile
+---
+- launchApp
+- runFlow:
+    when:
+      visible: "Ahoj, já jsem Anitka!"
+    commands:
+      - takeScreenshot:
+          path: "${THEME}-guide-welcome"
+      - tapOn: "Další"
+      - assertVisible: "Jak se tu pohybovat"
+      - takeScreenshot:
+          path: "${THEME}-guide-spotlight"
+      - tapOn: "Další"
+      - assertVisible: "Domů: dnešní přehled"
+      - tapOn: "Další"
+      - assertVisible: "Zvonek: dám vám vědět"
+      - tapOn: "Další"
+      - assertVisible: "Nákupní seznam: co máme koupit"
+      - assertVisible: "Sem napište, co chybí"
+      - takeScreenshot:
+          path: "${THEME}-guide-feature-spotlight"
+      - tapOn: "Zavřít průvodce"
+
+- tapOn:
+    id: guide-nav-more
+- tapOn: "Profil"
+- tapOn: "Vzhled"
+- runFlow:
+    when:
+      true: ${THEME == 'light'}
+    commands:
+      - tapOn: "Světlé"
+- runFlow:
+    when:
+      true: ${THEME == 'dark'}
+    commands:
+      - tapOn: "Tmavé"
+- tapOn: "Domácnost"
+- takeScreenshot:
+    path: "${THEME}-profile"
+- tapOn:
+    id: guide-nav-home
+- takeScreenshot:
+    path: "${THEME}-home"
+
+- tapOn:
+    id: guide-nav-shopping
+- assertVisible: "Nákupní seznam"
+- takeScreenshot:
+    path: "${THEME}-shopping"
+- tapOn: "Účtenky"
+- extendedWaitUntil:
+    visible: "Rozpracované účtenky"
+    timeout: 10000
+- takeScreenshot:
+    path: "${THEME}-receipts"
+
+- tapOn:
+    id: guide-nav-pantry
+- assertVisible: "Zásoby"
+- takeScreenshot:
+    path: "${THEME}-pantry"
+
+- tapOn:
+    id: guide-nav-budget
+- assertVisible: "Rozpočet domácnosti"
+- takeScreenshot:
+    path: "${THEME}-budget"
+- tapOn: "Plán"
+- assertVisible: "Příjmy"
+- takeScreenshot:
+    path: "${THEME}-budget-plan"
+
+- tapOn:
+    id: guide-nav-more
+- tapOn: "Akce"
+- assertVisible: "Hledat v akcích"
+- takeScreenshot:
+    path: "${THEME}-deals"
+- tapOn:
+    id: guide-nav-more
+- tapOn: "Obchody"
+- assertVisible: "Město nebo obec"
+- takeScreenshot:
+    path: "${THEME}-stores"
+- tapOn:
+    id: guide-nav-more
+- tapOn: "Recepty"
+- assertVisible: "Recepty"
+- takeScreenshot:
+    path: "${THEME}-recipes"
+- tapOn: "Jídelníček"
+- assertVisible: "Vytvořit jídelníček"
+- takeScreenshot:
+    path: "${THEME}-mealplan"
+
+- tapOn:
+    id: guide-nav-home
+- tapOn: "Otevřít chat s Anitkou"
+- assertVisible: "Chat s Anitkou"
+- assertVisible: "AI asistent zatím není připojený"
+- takeScreenshot:
+    path: "${THEME}-ai-chat"
+- tapOn: "Zavřít chat"
+
+- tapOn:
+    id: guide-nav-more
+- tapOn: "Profil"
+- tapOn: "Domácnost"
+- tapOn: "Otevřít průvodce aplikací"
+- assertVisible: "Ahoj, já jsem Anitka!"
+- takeScreenshot:
+    path: "${THEME}-guide-welcome"
+- tapOn: "Další"
+- assertVisible: "Jak se tu pohybovat"
+- takeScreenshot:
+    path: "${THEME}-guide-spotlight"
+- tapOn: "Další"
+- assertVisible: "Domů: dnešní přehled"
+- tapOn: "Další"
+- assertVisible: "Zvonek: dám vám vědět"
+- tapOn: "Další"
+- assertVisible: "Nákupní seznam: co máme koupit"
+- assertVisible: "Sem napište, co chybí"
+- takeScreenshot:
+    path: "${THEME}-guide-feature-spotlight"
+- tapOn: "Zavřít průvodce"

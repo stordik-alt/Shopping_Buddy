@@ -29,6 +29,7 @@ import { RecipesScreen } from '../components/recipes-screen'
 import { MealPlanScreen } from '../components/meal-plan-screen'
 import { BarcodeScannerModal } from '../components/barcode-scanner-modal'
 import { NativeGuideModal } from '../components/native-guide-modal'
+import { useNativeGuideTarget } from '../components/native-guide-targets'
 import { ShoppingToolsModal } from '../components/shopping-tools-modal'
 import { ReceiptsScreen } from '../components/receipts-screen'
 import { UsualItemsScreen } from '../components/usual-items-screen'
@@ -45,7 +46,7 @@ import {
   type NativeTab,
 } from '../components/native-parity-screens'
 import { RefreshButton } from '../components/refresh-button'
-import { getAccessToken, passwordResetCallbackUrl, requestPasswordReset, resetPassword, sendVerificationCode, signIn, signOut, signUp, verifyEmailCode, verifyEmailLink } from '../lib/auth'
+import { getAccessToken, hasLocalAuthSession, passwordResetCallbackUrl, requestPasswordReset, resetPassword, sendVerificationCode, signIn, signOut, signUp, verifyEmailCode, verifyEmailLink } from '../lib/auth'
 import { GUIDE_DONE_KEY, shouldAutoStartGuide } from '../../../lib/guide'
 import {
   applyOfflineOperations,
@@ -229,6 +230,7 @@ function LoginForm({ onAuthAction, busy, error }: { onAuthAction: (action: Mobil
             label={busy ? 'Zpracovávám…' : actionLabel}
             onPress={submit}
             style={styles.loginButton}
+            testID="login-submit"
           />
           {mode === 'verify' ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => void perform({ kind: 'resend-code', email: email.trim() }, () => setNotice('Pokud je účet potřeba ověřit, poslali jsme nový kód.'))}><Text style={styles.loginFooter}>Poslat nový kód</Text></Pressable> : null}
           {mode === 'sign-in' ? <Pressable accessibilityRole="button" onPress={() => { setMode('forgot'); setNotice('') }}><Text style={styles.loginFooter}>Zapomněli jste heslo?</Text></Pressable> : null}
@@ -240,10 +242,10 @@ function LoginForm({ onAuthAction, busy, error }: { onAuthAction: (action: Mobil
   )
 }
 
-function PrimaryButton({ label, onPress, disabled = false, style }: { label: string; onPress: () => void; disabled?: boolean; style?: StyleProp<ViewStyle> }) {
+function PrimaryButton({ label, onPress, disabled = false, style, testID }: { label: string; onPress: () => void; disabled?: boolean; style?: StyleProp<ViewStyle>; testID?: string }) {
   const styles = useStyles()
   return (
-    <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={[styles.primaryButton, style, disabled && styles.disabledButton]}>
+    <Pressable testID={testID} accessibilityRole="button" disabled={disabled} onPress={onPress} style={[styles.primaryButton, style, disabled && styles.disabledButton]}>
       <Text style={styles.primaryButtonText}>{label}</Text>
     </Pressable>
   )
@@ -254,6 +256,7 @@ function ShoppingRow({
   busy,
   disabled,
   priceData,
+  guideTargetRef,
   onToggle,
   onEdit,
 }: {
@@ -261,6 +264,7 @@ function ShoppingRow({
   busy: boolean
   disabled: boolean
   priceData: MobileDashboardSummary | null
+  guideTargetRef?: ReturnType<typeof useNativeGuideTarget>
   onToggle: () => void
   onEdit: () => void
 }) {
@@ -288,7 +292,7 @@ function ShoppingRow({
         </Text>
         {item.pending ? <Text style={styles.pendingLabel}>Čeká na synchronizaci</Text> : null}
       </View>
-      <Pressable accessibilityLabel={`Upravit množství položky ${item.name}`} accessibilityRole="button" disabled={disabled} onPress={onEdit} style={styles.secondaryButton}>
+      <Pressable ref={guideTargetRef} accessibilityLabel={`Upravit množství položky ${item.name}`} accessibilityRole="button" disabled={disabled} onPress={onEdit} style={styles.secondaryButton}>
         <Text style={styles.secondaryButtonText}>Upravit</Text>
       </Pressable>
     </View>
@@ -311,6 +315,7 @@ export default function HomeScreen() {
   const [recipeView, setRecipeView] = useState<'recipes' | 'meals'>('recipes')
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [guideStepId, setGuideStepId] = useState<string | null>(null)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [shoppingToolsOpen, setShoppingToolsOpen] = useState(false)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
@@ -350,6 +355,25 @@ export default function HomeScreen() {
   const barcodeHandled = useRef(false)
   const guideAutoStartChecked = useRef(false)
   const offlineSnapshot = useRef<OfflineShoppingSnapshot | null>(null)
+  const assistantGuideTarget = useNativeGuideTarget('assistant-open')
+  const notificationGuideTarget = useNativeGuideTarget('notification-button')
+  const homeNavGuideTarget = useNativeGuideTarget('nav-home')
+  const shoppingNavGuideTarget = useNativeGuideTarget('nav-shopping')
+  const pantryNavGuideTarget = useNativeGuideTarget('nav-pantry')
+  const budgetNavGuideTarget = useNativeGuideTarget('nav-budget')
+  const moreGuideTarget = useNativeGuideTarget('nav-more')
+  const shoppingInputGuideTarget = useNativeGuideTarget('shopping-input')
+  const shoppingItemGuideTarget = useNativeGuideTarget('shopping-item-row')
+  const shoppingToolsGuideTarget = useNativeGuideTarget('shopping-tools')
+  const shoppingFinishGuideTarget = useNativeGuideTarget('shopping-finish')
+
+  const navigateGuide = useCallback((tab: NativeTab, stepId?: string) => {
+    setActiveTab(tab)
+    setGuideStepId(stepId ?? null)
+    if (tab === 'shopping') setShoppingView(stepId === 'receipts' ? 'receipts' : stepId === 'purchases' ? 'purchases' : 'list')
+    setShoppingToolsOpen(stepId === 'shopping-plan' || stepId === 'shopping-search')
+    if (tab === 'recipes') setRecipeView(stepId === 'mealplan' ? 'meals' : 'recipes')
+  }, [])
 
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
@@ -395,11 +419,14 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!signedIn || !householdAvailable || guideAutoStartChecked.current) return
-    guideAutoStartChecked.current = true
     let active = true
     SecureStore.getItemAsync(GUIDE_DONE_KEY)
-      .then((stored) => { if (active && shouldAutoStartGuide(stored)) setGuideOpen(true) })
-      .catch(() => undefined)
+      .then((stored) => {
+        if (!active) return
+        guideAutoStartChecked.current = true
+        if (shouldAutoStartGuide(stored)) setGuideOpen(true)
+      })
+      .catch(() => { if (active) guideAutoStartChecked.current = true })
     return () => { active = false }
   }, [householdAvailable, signedIn])
 
@@ -468,7 +495,7 @@ export default function HomeScreen() {
     setOffline(false)
     try {
       const token = await getAccessToken()
-      if (!token) {
+      if (!token && !(await hasLocalAuthSession())) {
         setSignedIn(false)
         setHouseholdAvailable(false)
         setHouseholdProfile(null)
@@ -603,6 +630,11 @@ export default function HomeScreen() {
           await clearLastOfflineContext()
           await signIn(action.email, action.password)
           await load()
+          if (!guideAutoStartChecked.current) {
+            const storedGuideState = await SecureStore.getItemAsync(GUIDE_DONE_KEY).catch(() => null)
+            guideAutoStartChecked.current = true
+            if (shouldAutoStartGuide(storedGuideState)) setGuideOpen(true)
+          }
           break
         case 'sign-up':
           await signUp(action.email, action.password, action.name)
@@ -951,13 +983,13 @@ export default function HomeScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <View style={styles.header}>
           <View style={styles.nativeHeaderLeft}>
-            <Pressable accessibilityLabel="Otevřít chat s Anitkou" accessibilityRole="button" onPress={() => setAssistantOpen(true)} style={styles.brandMark}>
+            <Pressable ref={assistantGuideTarget} accessibilityLabel="Otevřít chat s Anitkou" accessibilityRole="button" onPress={() => setAssistantOpen(true)} style={styles.brandMark}>
               <View style={styles.mascotCrop}><Image accessibilityLabel="Anitka" resizeMode="contain" source={require('../assets/anitka-guide-front.webp')} style={styles.mascotImage} /></View>
             </Pressable>
             <Text numberOfLines={1} style={styles.nativeHeaderTitle}>{householdAvailable ? pageTitle : 'Nákup'}</Text>
           </View>
           <View style={styles.nativeHeaderActions}>
-            <Pressable accessibilityLabel={unreadNotificationCount ? `Upozornění, ${unreadNotificationCount} nepřečtených` : 'Upozornění'} accessibilityRole="button" onPress={() => setNotificationsOpen(true)} style={styles.headerIconButton}><Bell color={colors.primary} size={20} />{unreadNotificationCount > 0 ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</Text></View> : null}</Pressable>
+            <Pressable ref={notificationGuideTarget} accessibilityLabel={unreadNotificationCount ? `Upozornění, ${unreadNotificationCount} nepřečtených` : 'Upozornění'} accessibilityRole="button" onPress={() => setNotificationsOpen(true)} style={styles.headerIconButton}><Bell color={colors.primary} size={20} />{unreadNotificationCount > 0 ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</Text></View> : null}</Pressable>
             <Pressable accessibilityLabel={`Profil: ${userName}`} accessibilityRole="button" onPress={() => setActiveTab('profile')} style={styles.profileHeaderButton}>
               <Text style={styles.profileHeaderInitials}>{userName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?'}</Text>
               <ChevronDown color={colors.mutedText} size={13} />
@@ -979,6 +1011,7 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
+        <View style={styles.flex}>
         {!householdAvailable ? (
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>{householdMissing ? 'Domácnost není dostupná' : 'Seznam se nepodařilo načíst'}</Text>
@@ -1049,6 +1082,7 @@ export default function HomeScreen() {
 
                 <View style={styles.addRow}>
                   <TextInput
+                    ref={shoppingInputGuideTarget}
                     accessibilityLabel="Nová položka"
                     editable={!busy && !busyItemId}
                     maxLength={300}
@@ -1073,7 +1107,7 @@ export default function HomeScreen() {
                 >
                   <Text style={styles.scanButtonText}>Skenovat čárový kód</Text>
                 </Pressable>
-                <Pressable accessibilityRole="button" disabled={offline || busy || busyItemId !== null} onPress={() => setShoppingToolsOpen(true)} style={[styles.scanButton, (offline || busy || busyItemId !== null) && styles.disabledButton]}>
+                <Pressable ref={shoppingToolsGuideTarget} accessibilityRole="button" disabled={offline || busy || busyItemId !== null} onPress={() => setShoppingToolsOpen(true)} style={[styles.scanButton, (offline || busy || busyItemId !== null) && styles.disabledButton]}>
                   <Text style={styles.scanButtonText}>Plán nákupu a hledání produktů</Text>
                 </Pressable>
 
@@ -1126,7 +1160,7 @@ export default function HomeScreen() {
                     keyExtractor={(item) => item.id}
                     keyboardShouldPersistTaps="handled"
                     renderItem={({ item }) => (
-                      <ShoppingRow item={item} priceData={priceData} busy={busyItemId === item.id} disabled={busy || busyItemId !== null} onEdit={() => openEdit(item)} onToggle={() => void handleToggle(item)} />
+                      <ShoppingRow guideTargetRef={items.find((candidate) => !candidate.done)?.id === item.id ? shoppingItemGuideTarget : undefined} item={item} priceData={priceData} busy={busyItemId === item.id} disabled={busy || busyItemId !== null} onEdit={() => openEdit(item)} onToggle={() => void handleToggle(item)} />
                     )}
                   />
                 )}
@@ -1151,6 +1185,7 @@ export default function HomeScreen() {
                 onReload={load}
                 onSignOut={() => void handleSignOut()}
                 onOpenGuide={() => setGuideOpen(true)}
+                guideStepId={guideStepId}
                 onUpdateHousehold={(changes) => {
                   setHouseholdName(changes.name)
                   setHouseholdBudget(changes.monthlyBudget)
@@ -1175,16 +1210,17 @@ export default function HomeScreen() {
                 }} />}
               </>
             ) : activeTab === 'budget' ? (
-              <BudgetScreen onAuthExpired={handleAuthExpired} quickAddExpenseToken={quickExpenseToken} canManageBudget={householdRole === 'owner'} />
+              <BudgetScreen onAuthExpired={handleAuthExpired} quickAddExpenseToken={quickExpenseToken} canManageBudget={householdRole === 'owner'} guideStepId={guideStepId} />
             ) : activeTab === 'pantry' ? (
               <PantryScreen focusedItemId={focusedTarget?.kind === 'pantry-item' ? focusedTarget.id : null} onFocusHandled={() => setFocusedTarget(null)} onAuthExpired={handleAuthExpired} reviewToken={pantryReviewToken} onReviewAddToShopping={addPantryReviewItems} />
             ) : (
-              <BudgetScreen onAuthExpired={handleAuthExpired} canManageBudget={householdRole === 'owner'} />
+              <BudgetScreen onAuthExpired={handleAuthExpired} canManageBudget={householdRole === 'owner'} guideStepId={guideStepId} />
             )}
           </>
         )}
         {householdAvailable && activeTab === 'shopping' && shoppingView === 'list' && completed > 0 ? <View style={styles.completeShoppingBar}>
           <Pressable
+            ref={shoppingFinishGuideTarget}
             accessibilityRole="button"
             accessibilityState={{ disabled: offline || pendingChanges > 0 || busy || busyItemId !== null }}
             disabled={offline || pendingChanges > 0 || busy || busyItemId !== null}
@@ -1194,12 +1230,13 @@ export default function HomeScreen() {
             <Text style={styles.completeShoppingText}>{busyItemId === 'clear-done' ? 'Dokončuji…' : `✓  Dokončit nákup (${completed})`}</Text>
           </Pressable>
         </View> : null}
-        {householdAvailable ? <NativeBottomNav active={activeTab} onSelect={setActiveTab} /> : null}
+        </View>
+        {householdAvailable ? <NativeBottomNav active={activeTab} onSelect={setActiveTab} guideTargetRefs={{ home: homeNavGuideTarget, shopping: shoppingNavGuideTarget, pantry: pantryNavGuideTarget, budget: budgetNavGuideTarget, more: moreGuideTarget }} /> : null}
       </KeyboardAvoidingView>
       <NativeAssistantModal onClose={() => setAssistantOpen(false)} onShopping={() => setActiveTab('shopping')} visible={assistantOpen} />
-      <NativeGuideModal onClose={() => { setGuideOpen(false); void SecureStore.setItemAsync(GUIDE_DONE_KEY, 'done').catch(() => undefined) }} onNavigate={setActiveTab} visible={guideOpen} />
+      <NativeGuideModal onClose={() => { setGuideOpen(false); setGuideStepId(null); void SecureStore.setItemAsync(GUIDE_DONE_KEY, 'done').catch(() => undefined) }} onNavigate={navigateGuide} visible={guideOpen} />
       <NativeNotificationsModal onClose={() => setNotificationsOpen(false)} onUnreadCount={setUnreadNotificationCount} visible={notificationsOpen} />
-      <ShoppingToolsModal items={items} listId={activeListId} onAuthExpired={handleAuthExpired} onClose={() => setShoppingToolsOpen(false)} onProductAdded={addCatalogProduct} visible={shoppingToolsOpen} />
+      <ShoppingToolsModal guideStepId={guideStepId} items={items} listId={activeListId} onAuthExpired={handleAuthExpired} onClose={() => setShoppingToolsOpen(false)} onProductAdded={addCatalogProduct} visible={shoppingToolsOpen} />
       <Modal animationType="slide" onRequestClose={() => { if (!listActionBusy) setListCreateOpen(false) }} transparent visible={listCreateOpen}>
         <View style={styles.modalBackdrop}>
           <View style={styles.editor}>

@@ -46,7 +46,7 @@ The Expo shopping screen opens `expo-camera` only after the user explicitly star
 
 ### Native receipt import — 2026-10-17
 
-The Expo receipt screen captures a photo only after the user opens the camera and grants permission. Bearer-authenticated `/api/mobile/receipts` routes resolve household membership server-side and use the same upload validation, 24-hour limits, private R2 storage, `receipt_imports` state, atomic processing claim, OCR rate limits, and deterministic receipt pipeline as the PWA. The mobile screen can retry failed or abandoned processing and displays review/duplicate states, but never confirms uncertain OCR or creates a purchase from an unreviewed receipt; final correction and confirmation remain in the existing web review UI. No migration, second receipt store, or parallel OCR pipeline is added.
+The Expo receipt screen captures a photo only after the user opens the camera and grants permission. `/api/mobile/receipts` routes resolve either a verified bearer token or a verified auth session cookie, then resolve household membership server-side. They use the same upload validation, 24-hour limits, private R2 storage, `receipt_imports` state, atomic processing claim, OCR rate limits, and deterministic receipt pipeline as the PWA. The mobile screen can retry failed or abandoned processing and displays review/duplicate states, but never confirms uncertain OCR or creates a purchase from an unreviewed receipt; final correction and confirmation remain in the existing web review UI. No migration, second receipt store, or parallel OCR pipeline is added.
 
 ### Native offline shopping-list sync — 2026-10-17
 

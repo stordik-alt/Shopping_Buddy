@@ -18,7 +18,7 @@ import type { PeriodHistoryRow } from '../../../lib/budget-history'
 import type { PocketAmount } from '../../../lib/budget-closing'
 import type { UsualItem } from '../../../lib/usual-items'
 import type { ItemCategory, PantryLocation, PantryTracking } from '../../../lib/types'
-import { clearAccessToken, getAccessToken } from './auth'
+import { clearAccessToken, getAccessToken, getStoredAuthCookie, usesLocalAuth } from './auth'
 import { getApiUrl } from './config'
 
 export type MobileShoppingItem = {
@@ -273,16 +273,20 @@ export class MobileApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getAccessToken()
-  if (!token) throw new MobileApiError('Přihlaste se ke svému účtu ANITKA.', 401, 'not_signed_in')
+  const localAuth = usesLocalAuth()
+  const cookie = localAuth ? await getStoredAuthCookie() : ''
+  if (!token && !cookie && !localAuth) throw new MobileApiError('Přihlaste se ke svému účtu ANITKA.', 401, 'not_signed_in')
 
   let response: Response
   try {
     const headers: Record<string, string> = Object.fromEntries(new Headers(init?.headers).entries())
     if (!(init?.body instanceof FormData)) headers['Content-Type'] = 'application/json'
-    headers.Authorization = ['Bearer', token].join(' ')
+    if (token) headers.Authorization = ['Bearer', token].join(' ')
+    else if (cookie) headers.Cookie = cookie
     response = await fetch(`${getApiUrl()}${path}`, {
       ...init,
       headers,
+      ...(localAuth ? { credentials: 'include' as const } : {}),
     })
   } catch {
     throw new MobileApiError('Nepodařilo se připojit k serveru. Zkontrolujte připojení a zkuste to znovu.', 0, 'network_error')

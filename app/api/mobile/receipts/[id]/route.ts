@@ -60,7 +60,6 @@ function reviewError(error: unknown) {
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    if (!request.headers.has('authorization')) return json({ error: 'not_signed_in' }, 401)
     const user = await mobileUserFromRequest(request)
     const household = await mobileHouseholdForUser(user.id)
     if (!household) return json({ error: 'household_required' }, 409)
@@ -94,7 +93,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 /** Confirm the OCR line review or resolve a suspected duplicate using the authenticated household. */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    if (!request.headers.has('authorization')) return json({ error: 'not_signed_in' }, 401)
     const user = await mobileUserFromRequest(request)
     const household = await mobileHouseholdForUser(user.id)
     if (!household) return json({ error: 'household_required' }, 409)
@@ -133,7 +131,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    if (!request.headers.has('authorization')) return json({ error: 'not_signed_in' }, 401)
     const user = await mobileUserFromRequest(request)
     const household = await mobileHouseholdForUser(user.id)
     if (!household) return json({ error: 'household_required' }, 409)

@@ -10,16 +10,16 @@ on:
 permissions:
   contents: read
 
-# Web (PWA) checks. A change that only touches the Expo app (apps/mobile) skips every job below: a skipped
-# job counts as passed for required checks, so the check names stay stable for main's protection rules.
-# The mobile app has its own workflow (mobile.yml). Nothing here deploys: production is the manual
-# cloudflare-deploy.yml, which builds the web app only and never reads mobile results.
+# PWA checks and a paired PWA/Android visual smoke run. A change that only touches the Expo app skips
+# web-only build and database jobs, but still runs the visual smoke job. The mobile app has its own
+# typecheck/export workflow (mobile.yml). Nothing here deploys: production is the manual cloudflare-deploy.yml.
 jobs:
   changes:
     name: Detect web changes
     runs-on: ubuntu-latest
     outputs:
       web: ${{ steps.diff.outputs.web }}
+      mobile: ${{ steps.diff.outputs.mobile }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,11 +36,16 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           web=true
+          mobile=false
           if [ "$EVENT" = "pull_request" ]; then
-            others=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" | grep -v '^apps/mobile/' || true)
+            changed=$(git diff --name-only "$BASE_SHA...$HEAD_SHA")
+            others=$(printf '%s\n' "$changed" | grep -v '^apps/mobile/' || true)
+            mobile_files=$(printf '%s\n' "$changed" | grep '^apps/mobile/' || true)
             if [ -z "$others" ]; then web=false; fi
+            if [ -n "$mobile_files" ]; then mobile=true; fi
           fi
           echo "web=$web" >> "$GITHUB_OUTPUT"
+          echo "mobile=$mobile" >> "$GITHUB_OUTPUT"
 
   unit:
     name: Unit tests, typecheck and production build
@@ -116,9 +121,9 @@ jobs:
   e2e:
     name: Playwright smoke tests
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:16
@@ -195,6 +200,136 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Create isolated Android visual account
+        env:
+          MOBILE_VISUAL_EMAIL: mobile-visual@example.com
+          MOBILE_VISUAL_PASSWORD: MobileVisual-2026!
+        run: pnpm exec tsx e2e/mobile/create-visual-fixture.ts
+
+      - name: Cache Android Gradle dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: android-gradle-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'apps/mobile/package.json', 'apps/mobile/app.config.ts') }}
+          restore-keys: |
+            android-gradle-${{ runner.os }}-
+
+      - name: Build Android release APK for the emulator
+        env:
+          EXPO_PUBLIC_API_URL: http://127.0.0.1:3000
+          NEXT_PUBLIC_LOCAL_DATABASE: '1'
+          ANITKA_E2E_CLEAR_TEXT: '1'
+        run: pnpm --filter @shopping-buddy/mobile exec expo prebuild --platform android --no-install
+
+      - name: Use the runner's installed Android NDK
+        working-directory: apps/mobile/android
+        run: |
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          ndk_root="$(find "$sdk_root/ndk" -mindepth 1 -maxdepth 1 -type d -name '27.*' -print | sort -V | tail -n 1)"
+          if [ -z "$ndk_root" ]; then
+            echo "No installed NDK 27.x was found in $sdk_root/ndk" >&2
+            exit 1
+          fi
+          ndk_version="${ndk_root##*/}"
+          echo "Using preinstalled Android NDK $ndk_version"
+          test -f build.gradle
+          # Expo SDK 57 sets rootProject.ext.ndkVersion from its plugin; pin
+          # that shared value after the plugin applies so app and native modules
+          # use the NDK already installed on the runner.
+          printf '\n// CI uses the NDK preinstalled on ubuntu-24.04.\next.ndkVersion = "%s"\n' "$ndk_version" >> build.gradle
+          tail -n 2 build.gradle
+          grep -F "ext.ndkVersion = \"$ndk_version\"" build.gradle
+
+      - name: Configure Gradle memory for the Android runner
+        working-directory: apps/mobile/android
+        run: |
+          if [ -f gradle.properties ]; then
+            sed -i '/^org\.gradle\.jvmargs=/d; /^org\.gradle\.workers\.max=/d' gradle.properties
+          fi
+          printf '\n' >> gradle.properties
+          cat >> gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
+          org.gradle.workers.max=2
+          EOF
+          cat gradle.properties
+
+      - name: Assemble Android emulator release APK
+        working-directory: apps/mobile/android
+        env:
+          EXPO_PUBLIC_API_URL: http://127.0.0.1:3000
+          NEXT_PUBLIC_LOCAL_DATABASE: '1'
+          ANITKA_E2E_CLEAR_TEXT: '1'
+        run: ./gradlew assembleRelease --no-daemon --build-cache -PreactNativeArchitectures=x86_64
+
+      - name: Start the isolated PWA/API server for the Android emulator
+        run: |
+          nohup ./node_modules/.bin/next start > /tmp/shopping-buddy-visual-server.log 2>&1 &
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:3000/intro > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/shopping-buddy-visual-server.log
+          exit 1
+
+      - name: Install Maestro CLI
+        env:
+          MAESTRO_VERSION: 2.9.0
+        run: |
+          curl -Ls https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Prepare Android SDK for emulator runner
+        run: |
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [ -z "$sdk_root" ] || [ ! -d "$sdk_root" ]; then
+            echo "Android SDK root is unavailable" >&2
+            exit 1
+          fi
+          # The pinned emulator action creates this directory with mkdir (not mkdir -p).
+          # Ubuntu runner images already provide it, so clear it after APK assembly.
+          rm -rf "$sdk_root/cmdline-tools"
+
+      - name: Enable Android emulator KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo chmod 0666 /dev/kvm
+          ls -l /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+
+      - name: Capture and compare PWA and native Android screens
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          channel: canary
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disk-size: 8G
+          disable-linux-hw-accel: false
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
+          script: |
+            adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+            adb reverse tcp:3000 tcp:3000
+            adb shell wm size 390x892
+            adb shell wm density 160
+            maestro test --test-output-dir test-results/mobile-parity/native/login --debug-output test-results/mobile-parity/debug/login .maestro/flows/mobile-visual-login.yaml -e MOBILE_VISUAL_EMAIL=mobile-visual@example.com -e MOBILE_VISUAL_PASSWORD=MobileVisual-2026!
+            maestro test --test-output-dir test-results/mobile-parity/native/light --debug-output test-results/mobile-parity/debug/light .maestro/flows/mobile-visual-capture.yaml -e THEME=light
+            maestro test --test-output-dir test-results/mobile-parity/native/dark --debug-output test-results/mobile-parity/debug/dark .maestro/flows/mobile-visual-capture.yaml -e THEME=dark
+            ./node_modules/.bin/tsx e2e/mobile/compare-parity-screenshots.ts
+
+      - name: Upload paired PWA and native Android screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mobile-visual-parity-${{ github.run_id }}
+          path: test-results/mobile-parity/
+          if-no-files-found: warn
+          retention-days: 14
 
   database:
     name: Database-backed tests (local PostgreSQL)

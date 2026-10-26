@@ -5,6 +5,30 @@
 **Kontrolovaný commit:** `4d63cea1078c85b8b32df298cd62103f681b35ce`  
 **Rozsah:** porovnání uživatelských funkcí PWA s obrazovkami a mobilním API v `apps/mobile`. Jde o kontrolu zdrojového kódu, ne o vizuální test každé funkce na telefonu.
 
+## Výsledek implementace PR #622 (2026-10-25)
+
+Auditní tabulka níže zachycuje původní stav před implementací. Funkční mezery v ní uvedené jsou doplněné; její zjištění proto nepředstavují aktuálně chybějící funkce.
+
+| Oblast | Doplněno | Stav |
+|---|---|---|
+| Zásoby | Změna kategorie, podkategorie, druhu produktu a četnosti kontroly, automatické zařazení a úprava obsahu balení. | Hotovo |
+| Jídelníček | Označení jídla jako uvařeného přes sdílenou idempotentní logiku odečtu zásob. | Hotovo |
+| Recepty | Oblíbené a nedávné recepty, doporučení podle zásob, filtry a řazení, změna porcí, výběr surovin do seznamu, ceny a návrh obchodu. | Hotovo |
+| Účtenky a seznam | Serverové návrhy shod po importu a potvrzení pouze vybraných položek. | Hotovo |
+| Rozpočet | Měsíční přehled úspor, srovnání tempa s předchozím obdobím a projekce do konce období. | Hotovo |
+| Účet | Nativní registrace, ověření e-mailu a obnova hesla přes Neon Auth. | Hotovo |
+| Navigace | Předání ID cílové účtenky nebo položky zásob z domovské obrazovky. | Hotovo |
+
+PR #622 byl sloučen do `main` jako `cf544a9471024709175966b0acc67e6d635c1867`; všechny jeho CI kontroly prošly. Vizuální shoda nativních obrazovek s PWA se v tomto PR neověřovala emulátorem. Aktuální pokrytí screenshoty a plánované nativní vizuální ověření popisuje changelog.
+
+## Vizuální ověření Expo aplikace
+
+Aktualizovaný Playwright smoke test pořizuje snímky 8 hlavních obrazovek, účtenek, jídelníčku, plánování rozpočtu, AI chatu a tří kroků průvodce (úvod, navigace, ukázka pole nákupního seznamu). Nativní Android průchod Maestro pořizuje stejné obrazovky ve světlém i tmavém motivu. Porovnávací skript vyžaduje všech 15 dvojic pro každý motiv, snímky Androidu normalizuje na 390 × 844 px a připravuje dvojice vedle sebe i kontaktní listy jako CI artefakt.
+
+CI run [40249081377](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/40249081377) pořídil všech 30 snímků PWA a 30 odpovídajících snímků Androidu (15 obrazovek ve světlém a tmavém motivu); všechny byly vykreslené a vzniklo 30 porovnávacích dvojic. Vizuální kontrola potvrdila, že maskot u zprávy AI chatu je svisle vycentrovaný vedle bubliny jako v PWA. Zároveň odhalila, že mobilní průvodce měl maskota na opačné straně karty. Nativní průvodce je nyní upraven na pořadí PWA: text vlevo, maskot vpravo; nový CI běh pořídí opravné snímky pro závěrečnou kontrolu.
+
+Kontrola úplnosti a generování dvojic samo o sobě nezaručuje shodu pixelů; kontaktní listy se před sloučením PR vizuálně kontrolují. Android běží v CI emulátoru. iOS není v CI screenshoty pokrytý a zůstává ruční kontrolou.
+
 ## Potvrzené funkční mezery
 
 | Priorita | Oblast | Co v mobilní aplikaci chybí | Stav PWA / ověřené místo |

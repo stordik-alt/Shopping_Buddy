@@ -209,7 +209,7 @@ function LoginForm({ onAuthAction, busy, error }: { onAuthAction: (action: Mobil
           </View> : null}
           {mode !== 'reset' && mode !== 'verify' ? <View style={styles.fieldGroup}>
             <Text style={styles.label}>E-mail</Text>
-            <TextInput accessibilityLabel="E-mail" autoCapitalize="none" autoComplete="email" keyboardType="email-address" onChangeText={setEmail} placeholder="" placeholderTextColor={colors.mutedText} returnKeyType="next" style={styles.input} value={email} />
+            <TextInput testID="login-email" accessibilityLabel="E-mail" autoCapitalize="none" autoComplete="email" keyboardType="email-address" onChangeText={setEmail} placeholder="" placeholderTextColor={colors.mutedText} returnKeyType="next" style={styles.input} value={email} />
           </View> : null}
           {mode === 'verify' ? <View style={styles.fieldGroup}>
             <Text style={styles.label}>Ověřovací kód</Text>
@@ -218,6 +218,7 @@ function LoginForm({ onAuthAction, busy, error }: { onAuthAction: (action: Mobil
           {['sign-in', 'sign-up', 'reset'].includes(mode) ? <View style={styles.fieldGroup}>
             <Text style={styles.label}>{mode === 'reset' ? 'Nové heslo' : 'Heslo'}</Text>
             <TextInput
+              testID={mode === 'reset' ? 'login-new-password' : 'login-password'}
               accessibilityLabel={mode === 'reset' ? 'Nové heslo' : 'Heslo'}
               autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
               onChangeText={setPassword}

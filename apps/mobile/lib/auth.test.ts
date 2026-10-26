@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('expo-observe', () => ({ Observe: { reportError: vi.fn() } }))
+vi.mock('expo-observe', () => ({ Observe: { reportError: vi.fn(), dispatchEvents: vi.fn().mockResolvedValue(undefined) } }))
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),

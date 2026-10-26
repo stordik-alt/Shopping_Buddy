@@ -10,7 +10,10 @@
       }
     },
     "production": {
-      "uploadSourceMaps": true
+      "uploadSourceMaps": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://mojeanitka.cz"
+      }
     }
   }
 }

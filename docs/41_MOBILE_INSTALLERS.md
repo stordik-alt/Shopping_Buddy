@@ -2,7 +2,9 @@
 
 Mobilní Expo projekt je propojený s EAS projektem [`@mojeanitka/shopping-buddy`](https://expo.dev/accounts/mojeanitka/projects/shopping-buddy), ID `71379d96-272a-4aa5-af0a-940a00b69b44`. Vazba je v `apps/mobile/app.config.ts`.
 
-`apps/mobile/eas.json` definuje profil `internal`:
+`apps/mobile/eas.json` definuje profily `internal` a `production`; oba mají explicitně nastavenou `EXPO_PUBLIC_API_URL=https://mojeanitka.cz`. `apps/mobile/app.config.ts` už nemá výchozí fallback na `localhost`: pokud proměnná chybí nebo není absolutní HTTP(S) URL, konfigurace sestavení skončí chybou. Pro lokální vývoj ji nastavte záměrně v `apps/mobile/.env` (viz `.env.example`).
+
+Profil `internal`:
 
 - Android vytvoří instalovatelný APK.
 - iOS vytvoří interně distribuované IPA podepsané pro registrovaná zařízení (Ad Hoc).

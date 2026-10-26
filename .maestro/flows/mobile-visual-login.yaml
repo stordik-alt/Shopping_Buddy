@@ -3,6 +3,7 @@ appId: cz.shoppingbuddy.mobile
 - launchApp
 - tapOn: "E-mail"
 - inputText: ${MOBILE_VISUAL_EMAIL}
+- hideKeyboard
 - tapOn: "Heslo"
 - inputText: ${MOBILE_VISUAL_PASSWORD}
 - tapOn:

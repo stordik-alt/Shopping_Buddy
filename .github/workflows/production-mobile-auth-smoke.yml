@@ -78,6 +78,12 @@ jobs:
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
           script: |
+            export PATH="$HOME/.maestro/bin:$PATH"
+            if ! command -v maestro >/dev/null 2>&1; then
+              echo "Maestro CLI is missing; expected $HOME/.maestro/bin/maestro"
+              ls -la "$HOME/.maestro/bin" || true
+              exit 127
+            fi
             mkdir -p test-results/production-mobile-auth/debug
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             set +e

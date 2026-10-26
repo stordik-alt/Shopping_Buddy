@@ -1,3 +1,10 @@
+## 2026-10-26 — Odolnější mobilní přihlášení při HTTP 429
+
+- Mobilní přihlašovací formulář blokuje souběžné odeslání přihlašovacího požadavku.
+- Pokud Neon Auth vrátí HTTP 429, aplikace zobrazí srozumitelnou zprávu o dočasném přetížení a do EAS Observe zapíše pouze fázi, typ odmítnutí a HTTP stav.
+- Nepřidáváme automatické opakování POST přihlášení, aby se nezvyšovalo zatížení služby a nehrozily další limity.
+- Změna omezuje možné duplicitní požadavky, ale sama o sobě nepotvrzuje, proč Neon Auth v konkrétním případě vrátil 429.
+
 ## 2026-10-26 — Diagnostika mobilního přihlášení
 
 - Chyby přihlášení, získání JWT a odpovědi mobilního API 401 se explicitně hlásí do EAS Observe, protože zachycené chyby SDK samo automaticky neodesílá.

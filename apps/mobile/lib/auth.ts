@@ -12,9 +12,10 @@ const TOKEN_KEY = 'anitka.auth.jwt'
 
 // Report handled auth failures explicitly: Observe does not automatically collect caught exceptions.
 // Only fixed stage/reason labels are sent; never include credentials, tokens, cookies, or user identifiers.
-function reportAuthDiagnostic(stage: string, reason: string): void {
+function reportAuthDiagnostic(stage: string, reason: string, status?: number): void {
   try {
-    Observe.reportError(new Error(`ANITKA auth diagnostic: stage=${stage}; reason=${reason}`))
+    const statusLabel = status && Number.isInteger(status) && status >= 100 && status <= 599 ? `; status=${status}` : ''
+    Observe.reportError(new Error(`ANITKA auth diagnostic: stage=${stage}; reason=${reason}${statusLabel}`))
     void Observe.dispatchEvents().catch(() => undefined)
   } catch {
     // Diagnostics must never prevent the user from signing in.
@@ -23,6 +24,13 @@ function reportAuthDiagnostic(stage: string, reason: string): void {
 
 function errorKind(error: unknown): string {
   return error instanceof Error ? error.name : 'unknown'
+}
+
+function errorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const value = error as { status?: unknown; statusCode?: unknown }
+  const status = typeof value.status === 'number' ? value.status : value.statusCode
+  return typeof status === 'number' && Number.isInteger(status) && status >= 100 && status <= 599 ? status : undefined
 }
 let memoryCookie = ''
 let memoryToken = ''
@@ -211,14 +219,20 @@ export async function clearAccessToken(): Promise<void> {
 
 export async function signIn(email: string, password: string): Promise<void> {
   localSessionAvailable = false
+  let providerRejected = false
   try {
     const result = await getAuthClient().signIn.email({ email, password })
     if (result.error) {
-      reportAuthDiagnostic('sign-in-response', 'provider_rejected')
+      providerRejected = true
+      const status = errorStatus(result.error)
+      reportAuthDiagnostic('sign-in-response', 'provider_rejected', status)
+      if (status === 429) {
+        throw new Error('Přihlašovací služba je dočasně přetížená. Počkejte chvíli a zkuste to znovu.')
+      }
       throw new Error(result.error.message || 'Přihlášení se nezdařilo.')
     }
   } catch (error) {
-    reportAuthDiagnostic('sign-in-request', errorKind(error))
+    if (!providerRejected) reportAuthDiagnostic('sign-in-request', errorKind(error), errorStatus(error))
     throw error
   }
   if (usesLocalAuth()) {

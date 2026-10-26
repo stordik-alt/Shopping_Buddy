@@ -110,6 +110,7 @@ function LoginForm({ onAuthAction, busy, error }: { onAuthAction: (action: Mobil
   const [code, setCode] = useState('')
   const [resetToken, setResetToken] = useState('')
   const [notice, setNotice] = useState('')
+  const signInInFlight = useRef(false)
 
   useEffect(() => {
     let active = true
@@ -183,7 +184,10 @@ function LoginForm({ onAuthAction, busy, error }: { onAuthAction: (action: Mobil
         setNotice('Heslo bylo změněno. Přihlaste se novým heslem.')
       })
     } else {
+      if (signInInFlight.current || busy) return
+      signInInFlight.current = true
       void perform({ kind: 'sign-in', email: email.trim(), password }, () => undefined)
+        .finally(() => { signInInFlight.current = false })
     }
   }
 

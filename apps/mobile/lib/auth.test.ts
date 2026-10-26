@@ -34,6 +34,7 @@ vi.mock('expo-secure-store', () => ({
 vi.mock('react-native', () => ({ Platform: { OS: 'ios' } }))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
+import { Observe } from 'expo-observe'
 import { getAccessToken, hasLocalAuthSession, signIn, signOut } from './auth'
 
 const TEST_JWT = 'header.payload.signature'
@@ -142,6 +143,17 @@ describe('mobile auth token cache', () => {
     await options.fetchOptions.onRequest(request)
 
     expect(request.headers.get('cookie')).toBe('neon-auth.session_token=signed-session')
+  })
+
+  it('reports Neon Auth 429 and shows a temporary service message', async () => {
+    mocks.signInEmail.mockResolvedValue({ error: { status: 429, message: 'Too Many Requests' } })
+
+    await expect(signIn('mobile@example.com', 'password123')).rejects.toThrow(
+      'Přihlašovací služba je dočasně přetížená. Počkejte chvíli a zkuste to znovu.',
+    )
+    expect(Observe.reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'ANITKA auth diagnostic: stage=sign-in-response; reason=provider_rejected; status=429' }),
+    )
   })
 
   it('still requires a Neon JWT outside the local-auth mode', async () => {

@@ -15,6 +15,7 @@ const TOKEN_KEY = 'anitka.auth.jwt'
 function reportAuthDiagnostic(stage: string, reason: string): void {
   try {
     Observe.reportError(new Error(`ANITKA auth diagnostic: stage=${stage}; reason=${reason}`))
+    void Observe.dispatchEvents().catch(() => undefined)
   } catch {
     // Diagnostics must never prevent the user from signing in.
   }

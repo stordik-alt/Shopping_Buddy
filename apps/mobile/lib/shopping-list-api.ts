@@ -306,6 +306,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       const safeCode = code && /^[a-z0-9_-]{1,60}$/i.test(code) ? code : 'unspecified'
       try {
         Observe.reportError(new Error(`ANITKA mobile API auth diagnostic: status=401; code=${safeCode}`))
+        void Observe.dispatchEvents().catch(() => undefined)
       } catch {
         // Diagnostics must never interrupt normal API error handling.
       }

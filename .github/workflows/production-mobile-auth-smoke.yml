@@ -53,6 +53,19 @@ jobs:
           curl -Ls https://get.maestro.dev | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
+      # GitHub-hosted Linux runners may expose /dev/kvm without granting the runner
+      # user access. The emulator needs KVM for x86_64 and otherwise exits before
+      # the Maestro script can collect diagnostics.
+      - name: Enable Android emulator hardware acceleration
+        shell: bash
+        run: |
+          if [[ ! -e /dev/kvm ]]; then
+            echo "::error::This runner does not expose /dev/kvm; Android x86_64 emulator cannot start."
+            exit 1
+          fi
+          sudo chmod 666 /dev/kvm
+          ls -l /dev/kvm
+
       - name: Run native login smoke test against production
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
@@ -65,6 +78,7 @@ jobs:
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
           script: |
+            mkdir -p test-results/production-mobile-auth/debug
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             set +e
             maestro test --test-output-dir test-results/production-mobile-auth --debug-output test-results/production-mobile-auth/debug .maestro/flows/production-mobile-auth-smoke.yaml -e MOBILE_AUTH_SMOKE_EMAIL="$MOBILE_AUTH_SMOKE_EMAIL" -e MOBILE_AUTH_SMOKE_PASSWORD="$MOBILE_AUTH_SMOKE_PASSWORD"
@@ -73,6 +87,16 @@ jobs:
             echo "---- Exact mobile auth failure details (if present) ----"
             grep -iE '\[mobile auth\]|Sign-in rejected by provider|Sign-in request failed' test-results/production-mobile-auth/android-logcat.txt | tail -n 100 || true
             exit "$result"
+
+      - name: Collect emulator diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p test-results/production-mobile-auth/emulator
+          adb devices -l > test-results/production-mobile-auth/emulator/adb-devices.txt 2>&1 || true
+          adb logcat -d -v threadtime > test-results/production-mobile-auth/android-logcat.txt 2>&1 || true
+          find "$HOME/.android/avd" -type f \( -name '*.log' -o -name 'emu-launch-params.txt' \) -print -exec cp --parents {} test-results/production-mobile-auth/emulator/ \; 2>/dev/null || true
+          find test-results/production-mobile-auth -maxdepth 4 -type f -print || true
 
       - name: Upload mobile login diagnostics
         if: always()

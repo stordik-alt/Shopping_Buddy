@@ -176,7 +176,8 @@ function useStyles() {
     targetLabelLeft: { left: 0 },
     targetLabelRight: { right: 0 },
     targetLabelText: { color: '#0a1a3f', fontSize: 11, fontWeight: '800' },
-    sheet: { zIndex: 2, alignSelf: 'center', width: '100%', maxWidth: 448, maxHeight: '57%', flexDirection: 'row-reverse', overflow: 'hidden', borderWidth: 1, borderColor: colors.border, borderRadius: 24, backgroundColor: colors.elevated, shadowColor: '#000000', shadowOpacity: 0.18, shadowRadius: 18, elevation: 14 },
+    // Keep the PWA order: guide copy on the left and Anitka's mascot column on the right.
+    sheet: { zIndex: 2, alignSelf: 'center', width: '100%', maxWidth: 448, maxHeight: '57%', flexDirection: 'row', overflow: 'hidden', borderWidth: 1, borderColor: colors.border, borderRadius: 24, backgroundColor: colors.elevated, shadowColor: '#000000', shadowOpacity: 0.18, shadowRadius: 18, elevation: 14 },
     copyPanel: { flex: 1, minWidth: 0, paddingHorizontal: 13, paddingTop: 10, paddingBottom: 11 },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 5 },
     eyebrow: { flex: 1, color: colors.mutedText, fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },

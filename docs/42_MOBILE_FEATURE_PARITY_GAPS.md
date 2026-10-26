@@ -25,7 +25,9 @@ PR #622 byl sloučen do `main` jako `cf544a9471024709175966b0acc67e6d635c1867`; 
 
 Aktualizovaný Playwright smoke test pořizuje snímky 8 hlavních obrazovek, účtenek, jídelníčku, plánování rozpočtu, AI chatu a tří kroků průvodce (úvod, navigace, ukázka pole nákupního seznamu). Nativní Android průchod Maestro pořizuje stejné obrazovky ve světlém i tmavém motivu. Porovnávací skript vyžaduje všech 15 dvojic pro každý motiv, snímky Androidu normalizuje na 390 × 844 px a připravuje dvojice vedle sebe i kontaktní listy jako CI artefakt.
 
-Kontrola úplnosti a generování dvojic nezaručuje automaticky shodu pixelů; před sloučením PR se kontaktní listy vizuálně zkontrolují. Android běží v CI emulátoru. iOS není v CI screenshoty pokrytý a zůstává ruční kontrolou.
+CI run [40249081377](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/40249081377) pořídil všech 30 snímků PWA a 30 odpovídajících snímků Androidu (15 obrazovek ve světlém a tmavém motivu); všechny byly vykreslené a vzniklo 30 porovnávacích dvojic. Vizuální kontrola potvrdila, že maskot u zprávy AI chatu je svisle vycentrovaný vedle bubliny jako v PWA. Zároveň odhalila, že mobilní průvodce měl maskota na opačné straně karty. Nativní průvodce je nyní upraven na pořadí PWA: text vlevo, maskot vpravo; nový CI běh pořídí opravné snímky pro závěrečnou kontrolu.
+
+Kontrola úplnosti a generování dvojic samo o sobě nezaručuje shodu pixelů; kontaktní listy se před sloučením PR vizuálně kontrolují. Android běží v CI emulátoru. iOS není v CI screenshoty pokrytý a zůstává ruční kontrolou.
 
 ## Potvrzené funkční mezery
 

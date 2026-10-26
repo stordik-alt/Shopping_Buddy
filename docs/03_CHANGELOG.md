@@ -1,3 +1,10 @@
+## 2026-10-26 — Vizuální kontrola parity PWA a Expo aplikace
+
+- Playwright smoke a Maestro pořizují pro 15 obrazovek, AI chat a tři interaktivní kroky průvodce snímky ve světlém i tmavém motivu; CI je porovnává v párech PWA/Android a odmítne prázdné snímky.
+- Kontrola CI runu [40249081377](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/40249081377) potvrdila 30 snímků PWA, 30 nativních snímků a všech 30 porovnávacích dvojic. Maskot v AI chatu je vedle zprávy svisle vycentrovaný stejně jako v PWA.
+- Vizuální kontrola našla odlišné pořadí prvků v průvodci: nativní aplikace měla maskota vlevo, PWA vpravo. Nativní karta je upravena tak, aby měla text vlevo a maskota vpravo; po této opravě se snímky znovu pořídí v CI.
+- Snímky Androidu jsou pokryté v CI, iOS zůstává mimo screenshotovou automatizaci.
+
 ## 2026-10-14 — Oprava zobrazení míst zásob po vymazání dat
 
 - Umístění zásob (Spíž, Lednice, Mrazák a další) zůstávají viditelná i při nulovém počtu položek.

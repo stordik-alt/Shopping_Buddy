@@ -317,9 +317,36 @@ jobs:
             adb reverse tcp:3000 tcp:3000
             adb shell wm size 390x892
             adb shell wm density 160
-            maestro test --test-output-dir test-results/mobile-parity/native/login --debug-output test-results/mobile-parity/debug/login .maestro/flows/mobile-visual-login.yaml -e MOBILE_VISUAL_EMAIL=mobile-visual@example.com -e MOBILE_VISUAL_PASSWORD=MobileVisual-2026!
-            maestro test --test-output-dir test-results/mobile-parity/native/light --debug-output test-results/mobile-parity/debug/light .maestro/flows/mobile-visual-capture.yaml -e THEME=light
-            maestro test --test-output-dir test-results/mobile-parity/native/dark --debug-output test-results/mobile-parity/debug/dark .maestro/flows/mobile-visual-capture.yaml -e THEME=dark
+
+            # Android 35 can briefly drop off ADB after boot. Recover only when the
+            # device transport is offline; do not retry real UI/assertion failures.
+            run_maestro() {
+              local label="$1"
+              shift
+              local attempt status state
+              for attempt in 1 2; do
+                adb reconnect offline || true
+                adb wait-for-device
+                if "$@"; then
+                  return 0
+                else
+                  status=$?
+                fi
+                state="$(adb get-state 2>/dev/null || true)"
+                if [ "$state" = "device" ] || [ "$attempt" -eq 2 ]; then
+                  echo "Maestro flow '$label' failed (device state: ${state:-unknown}, exit: $status)." >&2
+                  return "$status"
+                fi
+                echo "ADB device went offline during '$label'; restarting ADB transport and retrying once." >&2
+                adb kill-server || true
+                adb start-server
+                adb reconnect offline || true
+              done
+            }
+
+            run_maestro login maestro test --test-output-dir test-results/mobile-parity/native/login --debug-output test-results/mobile-parity/debug/login .maestro/flows/mobile-visual-login.yaml -e MOBILE_VISUAL_EMAIL=mobile-visual@example.com -e MOBILE_VISUAL_PASSWORD=MobileVisual-2026!
+            run_maestro light maestro test --test-output-dir test-results/mobile-parity/native/light --debug-output test-results/mobile-parity/debug/light .maestro/flows/mobile-visual-capture.yaml -e THEME=light
+            run_maestro dark maestro test --test-output-dir test-results/mobile-parity/native/dark --debug-output test-results/mobile-parity/debug/dark .maestro/flows/mobile-visual-capture.yaml -e THEME=dark
             ./node_modules/.bin/tsx e2e/mobile/compare-parity-screenshots.ts
 
       - name: Upload paired PWA and native Android screenshots

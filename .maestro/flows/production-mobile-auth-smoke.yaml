@@ -1,0 +1,14 @@
+appId: cz.shoppingbuddy.mobile
+---
+- launchApp
+- tapOn: "E-mail"
+- inputText: ${MOBILE_AUTH_SMOKE_EMAIL}
+- hideKeyboard
+- tapOn: "Heslo"
+- inputText: ${MOBILE_AUTH_SMOKE_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: login-submit
+- extendedWaitUntil:
+    visible: "Ahoj, já jsem Anitka!"
+    timeout: 30000

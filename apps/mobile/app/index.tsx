@@ -995,7 +995,7 @@ export default function HomeScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <View style={styles.header}>
           <View style={styles.nativeHeaderLeft}>
-            <Pressable ref={assistantGuideTarget} accessibilityLabel="Otevřít chat s Anitkou" accessibilityRole="button" onPress={() => setAssistantOpen(true)} style={styles.brandMark}>
+            <Pressable testID="home-assistant-button" ref={assistantGuideTarget} accessibilityLabel="Otevřít chat s Anitkou" accessibilityRole="button" onPress={() => setAssistantOpen(true)} style={styles.brandMark}>
               <View style={styles.mascotCrop}><Image accessibilityLabel="Anitka" resizeMode="contain" source={require('../assets/anitka-guide-front.webp')} style={styles.mascotImage} /></View>
             </Pressable>
             <Text numberOfLines={1} style={styles.nativeHeaderTitle}>{householdAvailable ? pageTitle : 'Nákup'}</Text>

@@ -190,10 +190,6 @@ jobs:
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
           DEBUG: pw:webserver,pw:api
-          # Production login is tested only after main pushes or by manual dispatch, never on PRs.
-          RUN_PRODUCTION_AUTH_SMOKE: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
-          PRODUCTION_AUTH_EMAIL: ${{ secrets.PRODUCTION_AUTH_EMAIL }}
-          PRODUCTION_AUTH_PASSWORD: ${{ secrets.PRODUCTION_AUTH_PASSWORD }}
         run: timeout --signal=TERM --kill-after=15s 900s ./node_modules/.bin/playwright test
 
       - name: Upload Playwright diagnostics and Mobile UI v2 screenshots

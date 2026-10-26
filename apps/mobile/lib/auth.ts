@@ -225,6 +225,12 @@ export async function signIn(email: string, password: string): Promise<void> {
     if (result.error) {
       providerRejected = true
       const status = errorStatus(result.error)
+      // Keep production mobile login failures diagnosable in Android logcat/CI artifacts.
+      // Never log the email, password, session cookie, or access token.
+      console.error('[mobile auth] Sign-in rejected by provider.', {
+        status: status ?? null,
+        message: result.error.message || 'Provider returned no error message.',
+      })
       reportAuthDiagnostic('sign-in-response', 'provider_rejected', status)
       if (status === 429) {
         throw new Error('Přihlašovací služba je dočasně přetížená. Počkejte chvíli a zkuste to znovu.')
@@ -232,7 +238,15 @@ export async function signIn(email: string, password: string): Promise<void> {
       throw new Error(result.error.message || 'Přihlášení se nezdařilo.')
     }
   } catch (error) {
-    if (!providerRejected) reportAuthDiagnostic('sign-in-request', errorKind(error), errorStatus(error))
+    if (!providerRejected) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[mobile auth] Sign-in request failed.', {
+        name: errorKind(error),
+        status: errorStatus(error) ?? null,
+        message,
+      })
+      reportAuthDiagnostic('sign-in-request', errorKind(error), errorStatus(error))
+    }
     throw error
   }
   if (usesLocalAuth()) {

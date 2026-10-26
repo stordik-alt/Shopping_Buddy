@@ -1,0 +1,84 @@
+name: Production mobile auth smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-auth-smoke:
+    name: Native Android login against production Neon Auth
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      EXPO_PUBLIC_API_URL: https://mojeanitka.cz
+      MOBILE_AUTH_SMOKE_EMAIL: ${{ secrets.PRODUCTION_AUTH_EMAIL }}
+      MOBILE_AUTH_SMOKE_PASSWORD: ${{ secrets.PRODUCTION_AUTH_PASSWORD }}
+
+    steps:
+      - name: Validate production test credentials
+        shell: bash
+        run: |
+          if [[ -z "$MOBILE_AUTH_SMOKE_EMAIL" || -z "$MOBILE_AUTH_SMOKE_PASSWORD" ]]; then
+            echo "::error::Configure Actions secrets PRODUCTION_AUTH_EMAIL and PRODUCTION_AUTH_PASSWORD for a dedicated verified production test account."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build native Android APK targeting production API
+        env:
+          EXPO_PUBLIC_API_URL: https://mojeanitka.cz
+        run: |
+          pnpm --filter @shopping-buddy/mobile exec expo prebuild --platform android --no-install
+          cd apps/mobile/android
+          ./gradlew assembleRelease --no-daemon --build-cache -PreactNativeArchitectures=x86_64
+
+      - name: Install Maestro CLI
+        run: |
+          curl -Ls https://get.maestro.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run native login smoke test against production
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          channel: canary
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disk-size: 8G
+          disable-linux-hw-accel: false
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
+          script: |
+            adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+            set +e
+            maestro test --test-output-dir test-results/production-mobile-auth --debug-output test-results/production-mobile-auth/debug .maestro/flows/production-mobile-auth-smoke.yaml -e MOBILE_AUTH_SMOKE_EMAIL="$MOBILE_AUTH_SMOKE_EMAIL" -e MOBILE_AUTH_SMOKE_PASSWORD="$MOBILE_AUTH_SMOKE_PASSWORD"
+            result=$?
+            adb logcat -d -v threadtime > test-results/production-mobile-auth/android-logcat.txt
+            echo "---- Exact mobile auth failure details (if present) ----"
+            grep -iE '\[mobile auth\]|Sign-in rejected by provider|Sign-in request failed' test-results/production-mobile-auth/android-logcat.txt | tail -n 100 || true
+            exit "$result"
+
+      - name: Upload mobile login diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: production-mobile-auth-diagnostics-${{ github.run_id }}
+          path: test-results/production-mobile-auth/
+          if-no-files-found: warn
+          retention-days: 7

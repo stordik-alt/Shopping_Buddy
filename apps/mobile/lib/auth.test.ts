@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
+  getToken: vi.fn(),
   signInEmail: vi.fn(),
   signOut: vi.fn().mockResolvedValue({}),
   adapterOptions: vi.fn(),
@@ -10,7 +11,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@neondatabase/auth', () => ({
-  createAuthClient: () => ({ getSession: mocks.getSession, signIn: { email: mocks.signInEmail }, signOut: mocks.signOut }),
+  createAuthClient: () => ({ getSession: mocks.getSession, token: mocks.getToken, signIn: { email: mocks.signInEmail }, signOut: mocks.signOut }),
 }))
 vi.mock('@neondatabase/auth/vanilla/adapters', () => ({
   BetterAuthVanillaAdapter: (options: unknown) => {
@@ -43,23 +44,23 @@ describe('mobile auth token cache', () => {
     vi.clearAllMocks()
   })
 
-  it('uses the last saved bearer token when session refresh cannot reach Neon Auth', async () => {
+  it('uses the last saved bearer token when refresh cannot reach Neon Auth', async () => {
     mocks.values.set('anitka.auth.jwt', TEST_JWT)
-    mocks.getSession.mockResolvedValue({ error: { message: 'Network request failed' } })
+    mocks.getToken.mockRejectedValue(new Error('Network request failed'))
 
     await expect(getAccessToken()).resolves.toBe(TEST_JWT)
   })
 
-  it('stores and returns a fresh token from the session response', async () => {
-    mocks.getSession.mockResolvedValue({ data: { session: { token: TEST_JWT } } })
+  it('stores and returns a fresh bearer token from Neon Auth', async () => {
+    mocks.getToken.mockResolvedValue({ data: { token: TEST_JWT } })
 
     await expect(getAccessToken()).resolves.toBe(TEST_JWT)
-    expect(mocks.getSession).toHaveBeenCalledWith({ query: { disableCookieCache: true } })
+    expect(mocks.getToken).toHaveBeenCalledOnce()
     expect(mocks.values.get('anitka.auth.jwt')).toBe(TEST_JWT)
   })
 
-  it('does not return an opaque session ID as a bearer token', async () => {
-    mocks.getSession.mockResolvedValue({ data: { session: { token: 'opaque-session-id' } } })
+  it('does not return a non-JWT response as a bearer token', async () => {
+    mocks.getToken.mockResolvedValue({ data: { token: 'opaque-session-id' } })
 
     await expect(getAccessToken()).resolves.toBeNull()
     expect(mocks.values.has('anitka.auth.jwt')).toBe(false)
@@ -128,7 +129,7 @@ describe('mobile auth token cache', () => {
 
   it('sends the persisted Neon Auth cookie with later auth requests', async () => {
     mocks.values.set('anitka.auth.cookies', 'neon-auth.session_token=signed-session')
-    mocks.getSession.mockResolvedValue({ data: { session: { token: TEST_JWT } } })
+    mocks.getToken.mockResolvedValue({ data: { token: TEST_JWT } })
 
     await getAccessToken()
 
@@ -143,14 +144,14 @@ describe('mobile auth token cache', () => {
 
   it('still requires a Neon JWT outside the local-auth mode', async () => {
     mocks.signInEmail.mockResolvedValue({ data: {} })
-    mocks.getSession.mockResolvedValue({ data: { session: { token: 'opaque-session-id' } } })
+    mocks.getToken.mockResolvedValue({ data: { token: 'opaque-session-id' } })
 
     await expect(signIn('mobile@example.com', 'password123')).rejects.toThrow('Přihlášení se nezdařilo. Zkuste to znovu.')
   })
 
   it('surfaces session errors when no cached token exists', async () => {
-    mocks.getSession.mockResolvedValue({ error: { message: 'Session unavailable' } })
+    mocks.getToken.mockResolvedValue({ error: { message: 'Token unavailable' } })
 
-    await expect(getAccessToken()).rejects.toThrow('Session unavailable')
+    await expect(getAccessToken()).rejects.toThrow('Token unavailable')
   })
 })

@@ -105,9 +105,39 @@ type SessionResponse = {
   error?: { message?: string } | null
 }
 
+type NeonTokenResponse = {
+  data?: { token?: string } | null
+  error?: { message?: string } | null
+}
+
 export async function getAccessToken(): Promise<string | null> {
+  if (!usesLocalAuth()) {
+    try {
+      // Neon Auth exposes the bearer JWT through its token endpoint. The token in a
+      // Better Auth session is otherwise an opaque session ID, not an API JWT.
+      const result = (await getAuthClient().token()) as NeonTokenResponse
+      const savedToken = await readToken()
+      if (result.error) {
+        if (isJwt(savedToken)) return savedToken
+        throw new Error(result.error.message || 'Nepodařilo se ověřit přihlášení.')
+      }
+
+      const token = result.data?.token
+      if (isJwt(token)) {
+        await writeToken(token)
+        return token
+      }
+      if (isJwt(savedToken)) return savedToken
+      return null
+    } catch (error) {
+      const savedToken = await readToken()
+      if (isJwt(savedToken)) return savedToken
+      throw error
+    }
+  }
+
   try {
-    if (usesLocalAuth() && (localSessionAvailable || (await readCookie()))) {
+    if (localSessionAvailable || (await readCookie())) {
       traceLocalAuth('Using the existing local session without another SDK lookup.')
       return null
     }

@@ -8,6 +8,9 @@
       "android": {
         "buildType": "apk"
       }
+    },
+    "production": {
+      "uploadSourceMaps": true
     }
   }
 }

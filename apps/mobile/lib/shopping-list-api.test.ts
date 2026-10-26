@@ -2,16 +2,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('expo-observe', () => ({ Observe: { reportError: vi.fn(), dispatchEvents: vi.fn().mockResolvedValue(undefined) } }))
 
+const clearAccessToken = vi.fn()
+
 const getAccessToken = vi.fn()
 const getStoredAuthCookie = vi.fn()
 const usesLocalAuth = vi.fn()
 vi.mock('./auth', () => ({
+  clearAccessToken: (...args: unknown[]) => clearAccessToken(...args),
   getAccessToken: (...args: unknown[]) => getAccessToken(...args),
   getStoredAuthCookie: (...args: unknown[]) => getStoredAuthCookie(...args),
   usesLocalAuth: (...args: unknown[]) => usesLocalAuth(...args),
 }))
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
+import { Observe } from 'expo-observe'
 import { addShoppingItem, buildShoppingPlan, cancelReceiptImport, confirmReceiptReview, createShoppingList, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, getUsualItems, importManualReceipt, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, receiptImageUrl, resolveDuplicateReceipt, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, uploadReceiptFile, uploadReceiptPhoto } from './shopping-list-api'
 
 describe('mobile shopping-list API client', () => {
@@ -117,6 +121,18 @@ describe('mobile shopping-list API client', () => {
     getAccessToken.mockResolvedValue(null)
     await expect(getShoppingList()).rejects.toMatchObject({ code: 'not_signed_in', status: 401 })
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('reports an API 401 to EAS Observe without including credentials', async () => {
+    getAccessToken.mockResolvedValue('test-token')
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ error: 'invalid_token' }), { status: 401 }))
+
+    await expect(getShoppingList()).rejects.toMatchObject({ status: 401, code: 'invalid_token' })
+
+    expect(Observe.reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'ANITKA mobile API auth diagnostic: status=401; code=invalid_token' }),
+    )
+    expect(clearAccessToken).toHaveBeenCalledOnce()
   })
 
   it('uses the stored session cookie in local auth mode when no bearer JWT is available', async () => {

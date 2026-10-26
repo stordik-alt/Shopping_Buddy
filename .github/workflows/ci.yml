@@ -311,7 +311,7 @@ jobs:
           disk-size: 8G
           disable-linux-hw-accel: false
           emulator-boot-timeout: 900
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             adb reverse tcp:3000 tcp:3000

@@ -83,18 +83,19 @@ jobs:
             set +e
             maestro test --test-output-dir test-results/production-mobile-auth --debug-output test-results/production-mobile-auth/debug .maestro/flows/production-mobile-auth-smoke.yaml -e MOBILE_AUTH_SMOKE_EMAIL="$MOBILE_AUTH_SMOKE_EMAIL" -e MOBILE_AUTH_SMOKE_PASSWORD="$MOBILE_AUTH_SMOKE_PASSWORD"
             result=$?
-            adb logcat -d -v threadtime > test-results/production-mobile-auth/android-logcat.txt
+            timeout 20s adb logcat -d -v threadtime > test-results/production-mobile-auth/android-logcat.txt 2>&1 || true
             echo "---- Exact mobile auth failure details (if present) ----"
             grep -iE '\[mobile auth\]|Sign-in rejected by provider|Sign-in request failed' test-results/production-mobile-auth/android-logcat.txt | tail -n 100 || true
             exit "$result"
 
       - name: Collect emulator diagnostics
         if: always()
+        timeout-minutes: 2
         shell: bash
         run: |
           mkdir -p test-results/production-mobile-auth/emulator
-          adb devices -l > test-results/production-mobile-auth/emulator/adb-devices.txt 2>&1 || true
-          adb logcat -d -v threadtime > test-results/production-mobile-auth/android-logcat.txt 2>&1 || true
+          timeout 15s adb devices -l > test-results/production-mobile-auth/emulator/adb-devices.txt 2>&1 || true
+          timeout 20s adb logcat -d -v threadtime > test-results/production-mobile-auth/android-logcat.txt 2>&1 || true
           find "$HOME/.android/avd" -type f \( -name '*.log' -o -name 'emu-launch-params.txt' \) -print -exec cp --parents {} test-results/production-mobile-auth/emulator/ \; 2>/dev/null || true
           find test-results/production-mobile-auth -maxdepth 4 -type f -print || true
 

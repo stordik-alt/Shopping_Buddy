@@ -18,6 +18,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Notifications from 'expo-notifications'
+import { useObserve } from 'expo-observe'
 import * as SecureStore from 'expo-secure-store'
 import { Bell, ChevronDown, ChevronUp } from 'lucide-react-native'
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
@@ -308,6 +309,7 @@ function ShoppingRow({
 }
 
 export default function HomeScreen() {
+  const { markInteractive } = useObserve()
   const { colors } = useMobileTheme()
   const styles = useStyles()
   const [activeTab, setActiveTab] = useState<NativeTab>('home')
@@ -607,6 +609,11 @@ export default function HomeScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // The login screen is a valid entry state too: report readiness after initial auth/bootstrap settles.
+  useEffect(() => {
+    if (!busy) markInteractive()
+  }, [busy, markInteractive])
 
   const pricingNamesKey = items.filter((item) => !item.done).map((item) => item.name).join('\u001f')
   useEffect(() => {

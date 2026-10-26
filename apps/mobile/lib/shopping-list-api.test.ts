@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('expo-observe', () => ({ Observe: { reportError: vi.fn() } }))
+
 const getAccessToken = vi.fn()
 const getStoredAuthCookie = vi.fn()
 const usesLocalAuth = vi.fn()

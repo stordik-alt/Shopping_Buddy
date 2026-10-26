@@ -1,5 +1,6 @@
 import './crypto-polyfill'
 import { createAuthClient } from '@neondatabase/auth'
+import { Observe } from 'expo-observe'
 import { BetterAuthVanillaAdapter } from '@neondatabase/auth/vanilla/adapters'
 import Constants from 'expo-constants'
 import * as SecureStore from 'expo-secure-store'
@@ -8,6 +9,21 @@ import { getApiUrl } from './config'
 
 const COOKIE_KEY = 'anitka.auth.cookies'
 const TOKEN_KEY = 'anitka.auth.jwt'
+
+// Report handled auth failures explicitly: Observe does not automatically collect caught exceptions.
+// Only fixed stage/reason labels are sent; never include credentials, tokens, cookies, or user identifiers.
+function reportAuthDiagnostic(stage: string, reason: string): void {
+  try {
+    Observe.reportError(new Error(`ANITKA auth diagnostic: stage=${stage}; reason=${reason}`))
+    void Observe.dispatchEvents().catch(() => undefined)
+  } catch {
+    // Diagnostics must never prevent the user from signing in.
+  }
+}
+
+function errorKind(error: unknown): string {
+  return error instanceof Error ? error.name : 'unknown'
+}
 let memoryCookie = ''
 let memoryToken = ''
 let localSessionAvailable = false
@@ -119,6 +135,7 @@ export async function getAccessToken(): Promise<string | null> {
       const savedToken = await readToken()
       if (result.error) {
         if (isJwt(savedToken)) return savedToken
+        reportAuthDiagnostic('token-response', 'provider_error')
         throw new Error(result.error.message || 'Nepodařilo se ověřit přihlášení.')
       }
 
@@ -128,10 +145,12 @@ export async function getAccessToken(): Promise<string | null> {
         return token
       }
       if (isJwt(savedToken)) return savedToken
+      reportAuthDiagnostic('token-response', 'jwt_missing_or_invalid')
       return null
     } catch (error) {
       const savedToken = await readToken()
       if (isJwt(savedToken)) return savedToken
+      reportAuthDiagnostic('token-request', errorKind(error))
       throw error
     }
   }
@@ -192,8 +211,16 @@ export async function clearAccessToken(): Promise<void> {
 
 export async function signIn(email: string, password: string): Promise<void> {
   localSessionAvailable = false
-  const result = await getAuthClient().signIn.email({ email, password })
-  if (result.error) throw new Error(result.error.message || 'Přihlášení se nezdařilo.')
+  try {
+    const result = await getAuthClient().signIn.email({ email, password })
+    if (result.error) {
+      reportAuthDiagnostic('sign-in-response', 'provider_rejected')
+      throw new Error(result.error.message || 'Přihlášení se nezdařilo.')
+    }
+  } catch (error) {
+    reportAuthDiagnostic('sign-in-request', errorKind(error))
+    throw error
+  }
   if (usesLocalAuth()) {
     // A successful local sign-in already populated Better Auth's in-memory cache. On React Native,
     // the SDK's cached getSession path calls Response.json(), which Hermes does not implement.
@@ -203,6 +230,7 @@ export async function signIn(email: string, password: string): Promise<void> {
   const token = await getAccessToken()
   // Local Better Auth sessions use a persisted cookie; only Neon Auth can issue the JWT used in production.
   if (!token && !(usesLocalAuth() && ((await readCookie()) || localSessionAvailable))) {
+    reportAuthDiagnostic('post-sign-in-token', 'jwt_missing')
     throw new Error('Přihlášení se nezdařilo. Zkuste to znovu.')
   }
 }

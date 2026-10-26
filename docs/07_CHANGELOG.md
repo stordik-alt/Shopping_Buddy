@@ -1,3 +1,10 @@
+## 2026-10-26 — Diagnostika mobilního přihlášení
+
+- Chyby přihlášení, získání JWT a odpovědi mobilního API 401 se explicitně hlásí do EAS Observe, protože zachycené chyby SDK samo automaticky neodesílá.
+- Cloudflare Worker zapisuje očekávané odmítnutí Bearer tokenu do logu s důvodem a bezpečným identifikátorem chyby; nezapisuje token, cookies, e-mail ani identitu uživatele.
+- Diagnostické zprávy klienta obsahují pouze fázi a typ chyby/HTTP kód, nikoli přihlašovací údaje nebo tokeny.
+- Ověření na fyzickém zařízení a běh CI zůstávají nutné; změny samy o sobě nepotvrzují příčinu aktuálního 401.
+
 ## 2026-10-26 — EAS Observe pro Expo aplikaci
 
 - Expo root layout používá `ObserveRoot` s bezpečnou náhradní obrazovkou pro chyby vykreslení; EAS Observe automaticky zachytává neobsloužené JavaScript chyby.

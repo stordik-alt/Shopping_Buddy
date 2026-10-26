@@ -18,6 +18,12 @@ export async function mobileUserFromRequest(request: Request): Promise<BearerUse
       return await requireBearerUser(request.headers)
     } catch (error) {
       if (!(error instanceof BearerAuthError)) throw error
+      // Expected auth rejections return JSON 401/403 and would otherwise be invisible in Worker logs.
+      // Log only the fixed reason and sanitized error class/name, never the token or user identity.
+      console.warn('[mobile-auth] bearer verification rejected', {
+        reason: error.reason,
+        detail: /^[A-Za-z][A-Za-z0-9]{0,79}$/.test(error.message) ? error.message : 'auth_error',
+      })
       if (error.reason === 'unverified_email') throw new MobileRequestAuthError('email_not_verified', 403)
       if (error.reason === 'unavailable') throw new MobileRequestAuthError('bearer_unavailable', 401)
       throw new MobileRequestAuthError('invalid_token', 401)

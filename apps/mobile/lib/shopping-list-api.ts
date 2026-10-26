@@ -18,6 +18,7 @@ import type { PeriodHistoryRow } from '../../../lib/budget-history'
 import type { PocketAmount } from '../../../lib/budget-closing'
 import type { UsualItem } from '../../../lib/usual-items'
 import type { ItemCategory, PantryLocation, PantryTracking } from '../../../lib/types'
+import { Observe } from 'expo-observe'
 import { clearAccessToken, getAccessToken, getStoredAuthCookie, usesLocalAuth } from './auth'
 import { getApiUrl } from './config'
 
@@ -301,7 +302,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const code = body !== null && typeof body === 'object' && 'error' in body && typeof body.error === 'string' ? body.error : undefined
     const serverMessage = body !== null && typeof body === 'object' && 'message' in body && typeof body.message === 'string' ? body.message : undefined
-    if (response.status === 401) await clearAccessToken()
+    if (response.status === 401) {
+      const safeCode = code && /^[a-z0-9_-]{1,60}$/i.test(code) ? code : 'unspecified'
+      try {
+        Observe.reportError(new Error(`ANITKA mobile API auth diagnostic: status=401; code=${safeCode}`))
+        void Observe.dispatchEvents().catch(() => undefined)
+      } catch {
+        // Diagnostics must never interrupt normal API error handling.
+      }
+      await clearAccessToken()
+    }
     const message =
       response.status === 401
         ? 'Přihlášení vypršelo. Přihlaste se znovu.'

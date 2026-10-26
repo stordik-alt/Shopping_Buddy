@@ -50,7 +50,9 @@ jobs:
 
       - name: Install Maestro CLI
         run: |
-          curl -Ls https://get.maestro.dev | bash
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          test -x "$HOME/.maestro/bin/maestro"
+          "$HOME/.maestro/bin/maestro" --help
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       # GitHub-hosted Linux runners may expose /dev/kvm without granting the runner
@@ -78,7 +80,7 @@ jobs:
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
           script: |
-            bash -euo pipefail -c 'export PATH="$HOME/.maestro/bin:$PATH"; if ! command -v maestro >/dev/null 2>&1; then echo "Maestro CLI missing; expected $HOME/.maestro/bin/maestro"; ls -la "$HOME/.maestro/bin" || true; exit 127; fi; mkdir -p test-results/production-mobile-auth/debug; adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk; set +e; maestro test --test-output-dir test-results/production-mobile-auth --debug-output test-results/production-mobile-auth/debug .maestro/flows/production-mobile-auth-smoke.yaml -e MOBILE_AUTH_SMOKE_EMAIL="$MOBILE_AUTH_SMOKE_EMAIL" -e MOBILE_AUTH_SMOKE_PASSWORD="$MOBILE_AUTH_SMOKE_PASSWORD"; result=$?; timeout 20s adb logcat -d -v threadtime > test-results/production-mobile-auth/android-logcat.txt 2>&1 || true; echo "---- Exact mobile auth failure details (if present) ----"; grep -iE "\\[mobile auth\\]|Sign-in rejected by provider|Sign-in request failed" test-results/production-mobile-auth/android-logcat.txt | tail -n 100 || true; exit "$result"'
+            env -u BASH_ENV bash --noprofile --norc -eo pipefail -c 'mkdir -p test-results/production-mobile-auth/debug; adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk; set +e; "$HOME/.maestro/bin/maestro" test --test-output-dir test-results/production-mobile-auth --debug-output test-results/production-mobile-auth/debug .maestro/flows/production-mobile-auth-smoke.yaml -e MOBILE_AUTH_SMOKE_EMAIL="$MOBILE_AUTH_SMOKE_EMAIL" -e MOBILE_AUTH_SMOKE_PASSWORD="$MOBILE_AUTH_SMOKE_PASSWORD"; result=$?; timeout 20s adb logcat -d -v threadtime > test-results/production-mobile-auth/android-logcat.txt 2>&1 || true; echo "---- Exact mobile auth failure details (if present) ----"; grep -iE "\\[mobile auth\\]|Sign-in rejected by provider|Sign-in request failed" test-results/production-mobile-auth/android-logcat.txt | tail -n 100 || true; exit "$result"'
 
       - name: Collect emulator diagnostics
         if: always()

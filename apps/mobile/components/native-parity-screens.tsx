@@ -68,7 +68,7 @@ function NativeStoreMark({ chain }: { chain: string }) {
 function currentLocationWithTimeout(): Promise<Location.LocationObject> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('location_timeout')), 8_000)
-    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then(
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).then(
       (position) => { clearTimeout(timeout); resolve(position) },
       (error: unknown) => { clearTimeout(timeout); reject(error) },
     )

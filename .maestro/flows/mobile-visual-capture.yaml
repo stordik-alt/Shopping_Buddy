@@ -86,6 +86,9 @@ appId: cz.shoppingbuddy.mobile
 - assertVisible: "Město nebo obec"
 - takeScreenshot:
     path: "${THEME}-stores"
+- setPermissions:
+    permissions:
+      location: allow
 - tapOn: "Použít mou polohu"
 - extendedWaitUntil:
     visible: "Prodejny do 5 km od vaší polohy"

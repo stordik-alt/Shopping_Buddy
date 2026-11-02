@@ -22,7 +22,7 @@ import * as Notifications from 'expo-notifications'
 import { useObserve } from 'expo-observe'
 import * as SecureStore from 'expo-secure-store'
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake'
-import { Bell, ChevronDown, ChevronUp } from 'lucide-react-native'
+import { Bell, ChevronDown, ChevronUp, X } from 'lucide-react-native'
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { useMobileTheme } from '../lib/theme'
 import { unregisterDevicePushForSignOut } from '../lib/push-notifications'
@@ -353,6 +353,8 @@ export default function HomeScreen() {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [shoppingToolsOpen, setShoppingToolsOpen] = useState(false)
   const [shoppingToolsTarget, setShoppingToolsTarget] = useState<{ itemId: string; name: string } | null>(null)
+  const [undoRemoval, setUndoRemoval] = useState<MobileShoppingItem | null>(null)
+  const undoRemovalTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const [quickExpenseToken, setQuickExpenseToken] = useState(0)
   const [budgetPlanningToken, setBudgetPlanningToken] = useState(0)
@@ -372,6 +374,9 @@ export default function HomeScreen() {
   const [householdCurrency, setHouseholdCurrency] = useState('CZK')
   const [householdProfile, setHouseholdProfile] = useState<MobileHouseholdProfileData | null>(null)
   const [householdAvailable, setHouseholdAvailable] = useState(false)
+  useEffect(() => () => {
+    if (undoRemovalTimer.current) clearTimeout(undoRemovalTimer.current)
+  }, [])
   const [householdMissing, setHouseholdMissing] = useState(false)
   const [items, setItems] = useState<MobileShoppingItem[]>([])
   const [listFilter, setListFilter] = useState('')
@@ -944,6 +949,9 @@ export default function HomeScreen() {
           await saveOfflineSnapshot(updated)
           showSnapshot(updated)
           await syncPendingChanges(true)
+          if (undoRemovalTimer.current) clearTimeout(undoRemovalTimer.current)
+          setUndoRemoval(item)
+          undoRemovalTimer.current = setTimeout(() => setUndoRemoval(null), 7000)
         } catch (caught) {
           setError(errorMessage(caught))
         } finally {
@@ -951,6 +959,47 @@ export default function HomeScreen() {
         }
       })() } },
     ])
+  }
+
+  function dismissUndoRemoval() {
+    if (undoRemovalTimer.current) clearTimeout(undoRemovalTimer.current)
+    undoRemovalTimer.current = null
+    setUndoRemoval(null)
+  }
+
+  async function restoreRemovedItem() {
+    const item = undoRemoval
+    const current = offlineSnapshot.current
+    if (!item || !current || busyItemId) return
+    setBusyItemId('undo-removal')
+    setError(null)
+    try {
+      const created = await addShoppingItem(item.name, createOfflineItemId().slice('offline-'.length), item.quantity, item.unit, {
+        ...(item.category ? { category: item.category } : {}),
+        ...(item.detail ? { detail: item.detail } : {}),
+        ...(item.productId ? { selection: { kind: 'product' as const, productId: item.productId } } : {}),
+        listId: current.list.listId,
+      })
+      if (item.priority || item.note || item.store || item.productTypes) {
+        await updateShoppingItem(created.item.id, {
+          ...(item.priority ? { priority: item.priority } : {}),
+          ...(item.note ? { note: item.note } : {}),
+          ...(item.store !== undefined ? { store: item.store } : {}),
+          ...(item.productTypes ? { productTypes: item.productTypes } : {}),
+        })
+      }
+      if (item.done) await toggleShoppingItem(created.item.id, true)
+      const fresh = await getShoppingList(current.list.listId)
+      const next = { ...current, list: fresh, pending: [] }
+      await saveOfflineSnapshot(next)
+      showSnapshot(next)
+      dismissUndoRemoval()
+    } catch (caught) {
+      setError(errorMessage(caught))
+      if (caught instanceof MobileApiError && caught.status === 401) handleAuthExpired()
+    } finally {
+      setBusyItemId(null)
+    }
   }
 
   async function handleClearDoneItems() {
@@ -1495,6 +1544,11 @@ export default function HomeScreen() {
             )}
           </>
         )}
+        {householdAvailable && activeTab === 'shopping' && shoppingView === 'list' && undoRemoval ? <View style={styles.undoRemovalBar}>
+          <Text numberOfLines={1} style={styles.undoRemovalText}>Odstraněno: {undoRemoval.name}</Text>
+          <Pressable accessibilityRole="button" disabled={busyItemId === 'undo-removal'} onPress={() => void restoreRemovedItem()} style={[styles.undoRemovalButton, busyItemId === 'undo-removal' && styles.disabledButton]}><Text style={styles.undoRemovalButtonText}>{busyItemId === 'undo-removal' ? 'Vracím…' : 'Vrátit zpět'}</Text></Pressable>
+          <Pressable accessibilityLabel="Zavřít oznámení o odstranění" accessibilityRole="button" onPress={dismissUndoRemoval} style={styles.undoRemovalClose}><X color={colors.mutedText} size={17} /></Pressable>
+        </View> : null}
         {householdAvailable && activeTab === 'shopping' && shoppingView === 'list' && completed > 0 ? <View style={styles.completeShoppingBar}>
           <Pressable
             ref={shoppingFinishGuideTarget}
@@ -1641,6 +1695,11 @@ function useStyles() {
   shoppingGroupHeader: { paddingTop: 5, paddingBottom: 2 },
   shoppingGroupTitle: { color: colors.secondaryText, fontSize: 12, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
   completeShoppingBar: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, borderTopColor: colors.border, borderTopWidth: 1, backgroundColor: colors.background },
+  undoRemovalBar: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderTopColor: colors.border, borderTopWidth: 1, backgroundColor: colors.card },
+  undoRemovalText: { flex: 1, color: colors.foreground, fontSize: 13, fontWeight: '600' },
+  undoRemovalButton: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 10, backgroundColor: colors.accentSubtle },
+  undoRemovalButtonText: { color: colors.accentText, fontSize: 12, fontWeight: '800' },
+  undoRemovalClose: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 17 },
   completeShoppingButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: colors.accent },
   completeShoppingText: { color: '#0a1a3f', fontSize: 16, fontWeight: '700' },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 12 },

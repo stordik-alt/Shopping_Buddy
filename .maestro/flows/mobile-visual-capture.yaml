@@ -80,6 +80,13 @@ appId: cz.shoppingbuddy.mobile
 - tapOn: "Plán"
 - takeScreenshot:
     path: "${THEME}-budget-plan"
+- tapOn: "Další ›"
+- extendedWaitUntil:
+    visible: "PLÁN BUDOUCÍHO OBDOBÍ"
+    timeout: 15000
+- takeScreenshot:
+    path: "${THEME}-budget-future"
+- tapOn: "‹ Předchozí"
 - scrollUntilVisible:
     element:
       text: "Příjmy"

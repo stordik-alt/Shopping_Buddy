@@ -28,6 +28,7 @@ import { todayInPrague } from '../../../lib/today'
 import type { ItemCategory, ManualPurchaseInput } from '../../../lib/types'
 import { confirmsEmail } from '../../../lib/account-deletion'
 import { deleteSignedInUser } from '../lib/auth'
+import { NativeBudgetHero } from './native-budget-hero'
 
 export type NativeTab = 'home' | 'shopping' | 'pantry' | 'budget' | 'deals' | 'stores' | 'recipes' | 'profile'
 type TabLabel = NativeTab
@@ -102,7 +103,7 @@ export function NativeBottomNav({ active, onSelect, guideTargetRefs }: { active:
   )
 }
 
-export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceipts, onQuickExpense, onCheckPantry, hasPreferences }: { name: string; onSelect: (tab: NativeTab) => void; onAddToShopping: (name: string, quantity?: number, unit?: ItemUnit) => void; onOpenReceipts: (receiptId?: string) => void; onQuickExpense: () => void; onCheckPantry: () => void; hasPreferences: boolean }) {
+export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceipts, onQuickExpense, onOpenBudgetPlan, onCheckPantry, hasPreferences }: { name: string; onSelect: (tab: NativeTab) => void; onAddToShopping: (name: string, quantity?: number, unit?: ItemUnit) => void; onOpenReceipts: (receiptId?: string) => void; onQuickExpense: () => void; onOpenBudgetPlan: () => void; onCheckPantry: () => void; hasPreferences: boolean }) {
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
   const recommendationsGuideTarget = useNativeGuideTarget('home-recommendations')
@@ -165,11 +166,6 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
   const restock = (dashboard?.restockSuggestions ?? []).filter((suggestion) => !restockDismissed.includes(dismissalKey(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil))).slice(0, 3)
   const listDealRows = dashboard ? assessDealQuality(dashboard.productPrices, todayIso).slice(0, 3) : []
   const listOfferRows = dashboard?.offers.slice(0, Math.max(0, 3 - listDealRows.length)) ?? []
-  const daysRemaining = budget
-    ? Math.max(1, Math.floor((Date.parse(`${budget.period.end}T12:00:00Z`) - Date.parse(`${todayIso}T12:00:00Z`)) / 86_400_000) + 1)
-    : 0
-  const dailyRemaining = budget && daysRemaining > 0 ? budget.remaining / daysRemaining : null
-
   async function dismissRestock(suggestion: (typeof restock)[number]) {
     const key = dismissalKey(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil)
     setRestockDismissed((current) => current.includes(key) ? current : [...current, key])
@@ -203,17 +199,25 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       {attention.map((item) => <Pressable key={item.id} accessibilityRole="button" onPress={() => item.kind === 'receipt' ? onOpenReceipts(item.focus?.kind === 'receipt' ? item.focus.id : undefined) : onSelect('shopping')} style={styles.attentionCard}><Bell color={colors.warning} size={20} /><Text style={styles.attentionText}>{item.text}</Text><ArrowRight color={colors.mutedText} size={18} /></Pressable>)}
       {loading ? <ActivityIndicator color={colors.primary} size="large" style={styles.loader} /> : null}
-      <Pressable onPress={() => onSelect('budget')} style={styles.dashboardCard}>
-        <View style={[styles.cardIcon, styles.cardIconAccent]}><WalletCards color={colors.accentText} size={21} /></View>
-        <View style={styles.dashboardText}>
-          <Text style={styles.cardEyebrow}>ROZPOČET DOMÁCNOSTI</Text>
-          <Text style={styles.dashboardValue}>{budget ? `Zbývá ${money(Math.max(0, budget.remaining), budget.currency)}` : 'Zobrazit rozpočet'}</Text>
-          {budget ? <Text style={styles.bodyText}>Utraceno {money(budget.spent, budget.currency)} z {money(budget.budget, budget.currency)}</Text> : null}
-          {dailyRemaining != null && dailyRemaining >= 0 ? <Text style={styles.noteText}>Na den zbývá {money(dailyRemaining, budget!.currency)} ({daysRemaining} dní do konce období)</Text> : null}
-          {budget && budget.budget > 0 ? <View accessibilityLabel={`Vyčerpáno ${Math.min(100, Math.max(0, (budget.spent / budget.budget) * 100)).toFixed(0)} procent rozpočtu`} style={styles.budgetTrack}><View style={[styles.budgetFill, budget.remaining < 0 && styles.budgetFillOver, { width: `${Math.min(100, Math.max(0, (budget.spent / budget.budget) * 100))}%` }]} /></View> : null}
-        </View>
-        <ArrowRight color={colors.mutedText} size={20} />
-      </Pressable>
+      {budget ? (
+        <NativeBudgetHero
+          budget={budget.budget}
+          compact
+          currency={budget.currency}
+          onOpen={() => onSelect('budget')}
+          onSetBudget={onOpenBudgetPlan}
+          periodEnd={budget.period.end}
+          remaining={budget.remaining}
+          spent={budget.spent}
+          today={todayIso}
+        />
+      ) : (
+        <Pressable accessibilityRole="button" onPress={() => onSelect('budget')} style={styles.dashboardCard}>
+          <View style={[styles.cardIcon, styles.cardIconAccent]}><WalletCards color={colors.accentText} size={21} /></View>
+          <View style={styles.dashboardText}><Text style={styles.cardEyebrow}>ROZPOČET DOMÁCNOSTI</Text><Text style={styles.dashboardValue}>Zobrazit rozpočet</Text></View>
+          <ArrowRight color={colors.mutedText} size={20} />
+        </Pressable>
+      )}
       <Pressable onPress={() => onSelect('shopping')} style={styles.dashboardCard}>
         <View style={styles.cardIcon}><ShoppingCart color={colors.primary} size={21} /></View>
         <View style={styles.dashboardText}>
@@ -1553,9 +1557,6 @@ function useStyles() {
   chartLabelRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
   chartTrack: { height: 8, overflow: 'hidden', borderRadius: 8, backgroundColor: colors.muted },
   chartFill: { height: '100%', borderRadius: 8 },
-  budgetTrack: { height: 9, overflow: 'hidden', borderRadius: 9, backgroundColor: colors.muted, marginTop: 4 },
-  budgetFill: { height: '100%', borderRadius: 9, backgroundColor: colors.accent },
-  budgetFillOver: { backgroundColor: colors.destructive },
   cardIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: colors.muted, justifyContent: 'center', alignItems: 'center' },
   cardIconAccent: { backgroundColor: colors.accentSubtle },
   dashboardText: { flex: 1, minWidth: 0, gap: 2 },

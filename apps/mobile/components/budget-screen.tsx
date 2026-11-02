@@ -66,6 +66,7 @@ import { RecurringPaymentsScreen } from './recurring-payments-screen'
 import { RecurringIncomesScreen } from './recurring-incomes-screen'
 import { PocketsScreen } from './pockets-screen'
 import { BudgetAdvancedScreen } from './budget-advanced-screen'
+import { NativeBudgetHero } from './native-budget-hero'
 import type { RecurringPayment, RecurringPaymentInput } from '../../../lib/recurring-payments'
 import type { RecurringIncome, RecurringIncomeInput } from '../../../lib/recurring-incomes'
 import type { Pocket } from '../../../lib/types'
@@ -395,7 +396,7 @@ function BudgetPlanningScreen({
   </View>
 }
 
-export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManageBudget = false, guideStepId }: { onAuthExpired: () => void; quickAddExpenseToken?: number; canManageBudget?: boolean; guideStepId?: string | null }) {
+export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, budgetPlanningToken = 0, canManageBudget = false, guideStepId }: { onAuthExpired: () => void; quickAddExpenseToken?: number; budgetPlanningToken?: number; canManageBudget?: boolean; guideStepId?: string | null }) {
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
   const [summary, setSummary] = useState<MobileBudgetSummary | null>(null)
@@ -457,6 +458,10 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
       setEditorOpen(true)
     }
   }, [quickAddExpenseToken])
+
+  useEffect(() => {
+    if (budgetPlanningToken > 0) setView('planning')
+  }, [budgetPlanningToken])
 
   const load = useCallback(async (requestedPeriod?: string) => {
     setLoading(true)
@@ -677,16 +682,15 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
           <View style={styles.empty}><ActivityIndicator color={colors.primary} size="large" /><Text style={styles.supporting}>Načítání rozpočtu…</Text></View>
         ) : view === 'overview' && summary ? (
           <>
-            <View style={styles.card}>
-              <Text style={styles.label}>Rozpočet za období</Text>
-              <Text style={styles.budget}>{money(summary.budget, summary.currency)}</Text>
-              <View style={styles.row}><Text style={styles.supporting}>Skutečné výdaje</Text><Text style={styles.value}>{money(summary.spent, summary.currency)}</Text></View>
-              <View style={styles.row}>
-                <Text style={styles.supporting}>{summary.remaining >= 0 ? 'Zbývá' : 'Překročeno o'}</Text>
-                <Text style={[styles.remaining, summary.remaining < 0 && styles.over]}>{money(Math.abs(summary.remaining), summary.currency)}</Text>
-              </View>
-              {summary.budget > 0 ? <View accessibilityLabel={`Vyčerpáno ${Math.min(100, Math.max(0, (summary.spent / summary.budget) * 100)).toFixed(0)} procent rozpočtu`} style={styles.progressTrack}><View style={[styles.progress, summary.remaining < 0 && styles.progressOver, { width: `${Math.min(100, Math.max(0, (summary.spent / summary.budget) * 100))}%` }]} /></View> : null}
-            </View>
+            <NativeBudgetHero
+              budget={summary.budget}
+              currency={summary.currency}
+              onSetBudget={() => setView('planning')}
+              periodEnd={summary.period.end}
+              remaining={summary.remaining}
+              spent={summary.spent}
+              today={periodSettings?.today ?? todayLocal()}
+            />
             {overview ? <View style={styles.card}>
               <Text style={styles.sectionTitle}>Srovnání a očekávání</Text>
               {overview.comparison ? <View style={styles.budgetInsight}><Text style={styles.label}>{overview.comparison.changePercent <= 0 ? 'Utrácíte méně' : 'Utrácíte více'} než ve stejné části minulého období</Text><Text style={styles.value}>{money(overview.comparison.current, summary.currency)} oproti {money(overview.comparison.previous, summary.currency)} ({overview.comparison.changePercent > 0 ? '+' : ''}{overview.comparison.changePercent.toFixed(0)} %)</Text></View> : <Text style={styles.supporting}>Srovnání se zobrazí, až budou výdaje zaznamenané i v předchozím období.</Text>}

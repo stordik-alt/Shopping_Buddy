@@ -339,6 +339,7 @@ export default function HomeScreen() {
   const [shoppingToolsOpen, setShoppingToolsOpen] = useState(false)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const [quickExpenseToken, setQuickExpenseToken] = useState(0)
+  const [budgetPlanningToken, setBudgetPlanningToken] = useState(0)
   const [pantryReviewToken, setPantryReviewToken] = useState(0)
   const [focusedTarget, setFocusedTarget] = useState<FocusedNativeTarget | null>(null)
   const [signedIn, setSignedIn] = useState(false)
@@ -1138,6 +1139,7 @@ export default function HomeScreen() {
                 onAddToShopping={(name, quantity = 1, unit = 'ks') => { setActiveTab('shopping'); setShoppingView('list'); void handleAdd(name, quantity, unit) }}
                 onOpenReceipts={(receiptId) => { setShoppingView('receipts'); setActiveTab('shopping'); setFocusedTarget(receiptId ? { kind: 'receipt', id: receiptId } : null) }}
                 onQuickExpense={() => { setQuickExpenseToken((current) => current + 1); setActiveTab('budget') }}
+                onOpenBudgetPlan={() => { setBudgetPlanningToken((current) => current + 1); setActiveTab('budget') }}
                 onCheckPantry={() => { setActiveTab('pantry'); setPantryReviewToken((current) => current + 1) }}
                 onSelect={setActiveTab}
               />
@@ -1429,7 +1431,7 @@ export default function HomeScreen() {
                 }} />}
               </>
             ) : activeTab === 'budget' ? (
-              <BudgetScreen onAuthExpired={handleAuthExpired} quickAddExpenseToken={quickExpenseToken} canManageBudget={householdRole === 'owner'} guideStepId={guideStepId} />
+              <BudgetScreen budgetPlanningToken={budgetPlanningToken} onAuthExpired={handleAuthExpired} quickAddExpenseToken={quickExpenseToken} canManageBudget={householdRole === 'owner'} guideStepId={guideStepId} />
             ) : activeTab === 'pantry' ? (
               <PantryScreen focusedItemId={focusedTarget?.kind === 'pantry-item' ? focusedTarget.id : null} onFocusHandled={() => setFocusedTarget(null)} onAuthExpired={handleAuthExpired} reviewToken={pantryReviewToken} onReviewAddToShopping={addPantryReviewItems} />
             ) : (

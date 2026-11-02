@@ -13,6 +13,7 @@ import type { ItemUnit } from '@anitka/shared/units'
 type RecipeMode = 'search' | 'favorites' | 'history' | 'recommendations'
 
 const PAGE_SIZE = 12
+const RECIPE_QUICK_FILTERS = ['Rychlé', 'Večeře', 'Oběd', 'Polévky', 'Maso', 'Těstoviny', 'Dezerty', 'Bezmasé'] as const
 const RECIPE_SOURCE_OPTIONS = [
   { id: 'recepty-cz', name: 'Recepty.cz' },
   { id: 'apetit', name: 'Apetit Online' },
@@ -86,13 +87,14 @@ export function RecipesScreen({ onAuthExpired, onAddToShopping }: { onAuthExpire
     }
   }, [])
 
-  const search = useCallback(async (requestedPage = 1) => {
-    if (!query.trim() || loading) return
+  const search = useCallback(async (requestedPage = 1, requestedQuery = query) => {
+    const normalizedQuery = requestedQuery.trim()
+    if (!normalizedQuery || loading) return
     setLoading(true)
     setError(null)
     setSelected(null)
     try {
-      const result = await searchRecipes(query.trim(), { page: requestedPage, pageSize: PAGE_SIZE, sort, sourceId: sourceId ?? undefined, householdFilter })
+      const result = await searchRecipes(normalizedQuery, { page: requestedPage, pageSize: PAGE_SIZE, sort, sourceId: sourceId ?? undefined, householdFilter })
       setResults(result.results)
       setPage(result.page)
       setTotal(result.total)
@@ -259,6 +261,21 @@ export function RecipesScreen({ onAuthExpired, onAddToShopping }: { onAuthExpire
               <Text style={styles.searchButtonText}>Hledat</Text>
             </Pressable>
           </View>
+          <View accessibilityLabel="Rychlé hledání" style={styles.quickFilterRow}>
+            {RECIPE_QUICK_FILTERS.map((filter) => (
+              <Pressable
+                accessibilityRole="button"
+                key={filter}
+                onPress={() => {
+                  setQuery(filter)
+                  void search(1, filter)
+                }}
+                style={styles.quickFilterChip}
+              >
+                <Text style={styles.quickFilterText}>{filter}</Text>
+              </Pressable>
+            ))}
+          </View>
           <View style={styles.modeRow}>
             {[[null, 'Všechny zdroje'] as const, ...RECIPE_SOURCE_OPTIONS.map((source) => [source.id, source.name] as const)].map(([id, label]) => <Pressable key={id ?? 'all'} accessibilityRole="button" accessibilityState={{ selected: sourceId === id }} onPress={() => setSourceId(id)} style={[styles.modeChip, sourceId === id && styles.modeChipActive]}><Text style={[styles.modeText, sourceId === id && styles.modeTextActive]}>{label}</Text></Pressable>)}
           </View>
@@ -336,6 +353,9 @@ function useStyles() {
   input: { flex: 1, minHeight: 48, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card, color: colors.foreground, paddingHorizontal: 14, fontSize: 16 },
   searchButton: { minHeight: 48, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   searchButtonText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '700' },
+  quickFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  quickFilterChip: { minHeight: 40, justifyContent: 'center', borderRadius: 20, backgroundColor: colors.muted, paddingHorizontal: 14 },
+  quickFilterText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
   secondaryButton: { minHeight: 44, justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card, paddingHorizontal: 12 },
   secondaryButtonText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   disabledButton: { opacity: 0.5 },

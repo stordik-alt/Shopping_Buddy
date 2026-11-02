@@ -52,6 +52,13 @@ appId: cz.shoppingbuddy.mobile
 - assertVisible: "Nákupní seznam"
 - takeScreenshot:
     path: "${THEME}-shopping"
+- tapOn: "Najít produkt pro Mléko"
+- extendedWaitUntil:
+    visible: "Vybrat produkt pro: Mléko"
+    timeout: 15000
+- takeScreenshot:
+    path: "${THEME}-shopping-product"
+- tapOn: "Zavřít nákupní nástroje"
 - tapOn: "Účtenky"
 - extendedWaitUntil:
     visible: "Rozpracované účtenky"

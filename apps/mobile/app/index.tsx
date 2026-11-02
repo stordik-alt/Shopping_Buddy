@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -76,6 +77,7 @@ import {
   getShoppingList,
   lookupBarcode,
   MobileApiError,
+  removeShoppingItem,
   toggleShoppingItem,
   updateShoppingItem,
   type MobileShoppingItem,
@@ -273,6 +275,8 @@ function ShoppingRow({
   guideTargetRef,
   onToggle,
   onEdit,
+  onFindProduct,
+  onRemove,
 }: {
   item: MobileShoppingItem
   busy: boolean
@@ -281,6 +285,8 @@ function ShoppingRow({
   guideTargetRef?: ReturnType<typeof useNativeGuideTarget>
   onToggle: () => void
   onEdit: () => void
+  onFindProduct: () => void
+  onRemove: () => void
 }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
@@ -311,9 +317,17 @@ function ShoppingRow({
         {item.note ? <Text numberOfLines={2} style={styles.itemNote}>{item.note}</Text> : null}
         {item.pending ? <Text style={styles.pendingLabel}>Čeká na synchronizaci</Text> : null}
       </View>
-      <Pressable ref={guideTargetRef} accessibilityLabel={`Upravit množství položky ${item.name}`} accessibilityRole="button" disabled={disabled} onPress={onEdit} style={styles.secondaryButton}>
-        <Text style={styles.secondaryButtonText}>Upravit</Text>
-      </Pressable>
+      <View style={styles.shoppingRowActions}>
+        <Pressable ref={guideTargetRef} accessibilityLabel={`Upravit položku ${item.name}`} accessibilityRole="button" disabled={disabled} onPress={onEdit} style={styles.secondaryButton}>
+          <Text style={styles.secondaryButtonText}>Upravit</Text>
+        </Pressable>
+        <Pressable accessibilityLabel={`Najít produkt pro ${item.name}`} accessibilityRole="button" disabled={disabled} onPress={onFindProduct} style={[styles.shoppingFindButton, disabled && styles.disabledButton]}>
+          <Text style={styles.shoppingFindText}>Najít</Text>
+        </Pressable>
+        <Pressable accessibilityLabel={`Odstranit položku ${item.name}`} accessibilityRole="button" disabled={disabled || busy} onPress={onRemove} style={[styles.shoppingDeleteButton, (disabled || busy) && styles.disabledButton]}>
+          <Text style={styles.shoppingDeleteText}>Smazat</Text>
+        </Pressable>
+      </View>
     </View>
     {hasPrices ? <>
       <Pressable accessibilityRole="button" accessibilityState={{ expanded: pricesOpen }} onPress={() => setPricesOpen((value) => !value)} style={styles.priceToggle}>
@@ -338,6 +352,7 @@ export default function HomeScreen() {
   const [guideStepId, setGuideStepId] = useState<string | null>(null)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [shoppingToolsOpen, setShoppingToolsOpen] = useState(false)
+  const [shoppingToolsTarget, setShoppingToolsTarget] = useState<{ itemId: string; name: string } | null>(null)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const [quickExpenseToken, setQuickExpenseToken] = useState(0)
   const [budgetPlanningToken, setBudgetPlanningToken] = useState(0)
@@ -522,7 +537,7 @@ export default function HomeScreen() {
 
     const result = await syncOfflineOperations(
       current,
-      { add: addShoppingItem, toggle: toggleShoppingItem, update: updateShoppingItem },
+      { add: addShoppingItem, toggle: toggleShoppingItem, update: updateShoppingItem, remove: removeShoppingItem },
       saveOfflineSnapshot,
     )
     showSnapshot(result.snapshot)
@@ -912,6 +927,32 @@ export default function HomeScreen() {
     }
   }
 
+  function confirmRemoveItem(item: MobileShoppingItem) {
+    Alert.alert('Odstranit položku?', item.name, [
+      { text: 'Zrušit', style: 'cancel' },
+      { text: 'Odstranit', style: 'destructive', onPress: () => { void (async () => {
+        if (busy || busyItemId) return
+        setBusyItemId(item.id)
+        setError(null)
+        try {
+          const current = offlineSnapshot.current
+          if (!current) throw new Error('Seznam není připravený. Zkuste ho obnovit.')
+          const updated = {
+            ...current,
+            pending: enqueueOfflineOperation(current.pending, { kind: 'remove', itemId: item.id }),
+          }
+          await saveOfflineSnapshot(updated)
+          showSnapshot(updated)
+          await syncPendingChanges(true)
+        } catch (caught) {
+          setError(errorMessage(caught))
+        } finally {
+          setBusyItemId(null)
+        }
+      })() } },
+    ])
+  }
+
   async function handleClearDoneItems() {
     if (offline || pendingChanges > 0 || busy || busyItemId) return
     setBusyItemId('clear-done')
@@ -1298,7 +1339,7 @@ export default function HomeScreen() {
                 >
                   <Text style={styles.scanButtonText}>Skenovat čárový kód</Text>
                 </Pressable>
-                <Pressable ref={shoppingToolsGuideTarget} accessibilityRole="button" disabled={offline || busy || busyItemId !== null} onPress={() => setShoppingToolsOpen(true)} style={[styles.scanButton, (offline || busy || busyItemId !== null) && styles.disabledButton]}>
+                <Pressable ref={shoppingToolsGuideTarget} accessibilityRole="button" disabled={offline || busy || busyItemId !== null} onPress={() => { setShoppingToolsTarget(null); setShoppingToolsOpen(true) }} style={[styles.scanButton, (offline || busy || busyItemId !== null) && styles.disabledButton]}>
                   <Text style={styles.scanButtonText}>Plán nákupu a hledání produktů</Text>
                 </Pressable>
 
@@ -1396,7 +1437,7 @@ export default function HomeScreen() {
                       </View>
                     )}
                     renderItem={({ item }) => (
-                      <ShoppingRow guideTargetRef={items.find((candidate) => !candidate.done)?.id === item.id ? shoppingItemGuideTarget : undefined} item={item} priceData={priceData} busy={busyItemId === item.id} disabled={busy || busyItemId !== null} onEdit={() => openEdit(item)} onToggle={() => void handleToggle(item)} />
+                      <ShoppingRow guideTargetRef={items.find((candidate) => !candidate.done)?.id === item.id ? shoppingItemGuideTarget : undefined} item={item} priceData={priceData} busy={busyItemId === item.id} disabled={busy || busyItemId !== null || item.done} onEdit={() => openEdit(item)} onFindProduct={() => { setShoppingToolsTarget({ itemId: item.id, name: item.name }); setShoppingToolsOpen(true) }} onRemove={() => confirmRemoveItem(item)} onToggle={() => void handleToggle(item)} />
                     )}
                   />
                 )}
@@ -1477,7 +1518,7 @@ export default function HomeScreen() {
       <NativeAssistantModal onClose={() => setAssistantOpen(false)} onShopping={() => setActiveTab('shopping')} visible={assistantOpen} />
       <NativeGuideModal onClose={() => { setGuideOpen(false); setGuideStepId(null); void SecureStore.setItemAsync(GUIDE_DONE_KEY, 'done').catch(() => undefined) }} onNavigate={navigateGuide} visible={guideOpen} />
       <NativeNotificationsModal onClose={() => setNotificationsOpen(false)} onUnreadCount={setUnreadNotificationCount} visible={notificationsOpen} />
-      <ShoppingToolsModal guideStepId={guideStepId} items={items} listId={activeListId} onAuthExpired={handleAuthExpired} onClose={() => setShoppingToolsOpen(false)} onProductAdded={addCatalogProduct} visible={shoppingToolsOpen} />
+      <ShoppingToolsModal guideStepId={guideStepId} initialQuery={shoppingToolsTarget?.name ?? null} initialTargetItemId={shoppingToolsTarget?.itemId ?? null} items={items} listId={activeListId} onAuthExpired={handleAuthExpired} onClose={() => { setShoppingToolsOpen(false); setShoppingToolsTarget(null) }} onProductAdded={addCatalogProduct} visible={shoppingToolsOpen} />
       <Modal animationType="slide" onRequestClose={() => { if (!listActionBusy) setListCreateOpen(false) }} transparent visible={listCreateOpen}>
         <View style={styles.modalBackdrop}>
           <View style={styles.editor}>
@@ -1608,6 +1649,11 @@ function useStyles() {
   addInput: { flex: 1 },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 8 },
   itemRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 12, gap: 12 },
+  shoppingRowActions: { gap: 6 },
+  shoppingFindButton: { minHeight: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.accentSubtle, paddingHorizontal: 8 },
+  shoppingFindText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
+  shoppingDeleteButton: { minHeight: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.destructiveSubtle, paddingHorizontal: 8 },
+  shoppingDeleteText: { color: colors.destructive, fontSize: 12, fontWeight: '700' },
   shoppingRowGroup: { gap: 5 },
   priceToggle: { minHeight: 34, alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 8, borderRadius: 10, backgroundColor: colors.accentSubtle },
   priceToggleText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },

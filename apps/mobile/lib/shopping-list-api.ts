@@ -1007,3 +1007,7 @@ export function toggleShoppingItem(itemId: string, done: boolean) {
     body: JSON.stringify({ done }),
   })
 }
+
+export function removeShoppingItem(itemId: string) {
+  return request<{ ok: true }>(`/api/mobile/shopping-list/${encodeURIComponent(itemId)}`, { method: 'DELETE' })
+}

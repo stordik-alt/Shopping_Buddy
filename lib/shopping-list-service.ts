@@ -205,6 +205,11 @@ export async function toggleShoppingItemForHousehold(householdId: string, itemId
   await getDb().update(schema.shoppingListItems).set({ done }).where(eq(schema.shoppingListItems.id, itemId))
 }
 
+export async function removeShoppingItemForHousehold(householdId: string, itemId: string) {
+  await assertOwnsItem(householdId, itemId)
+  await getDb().delete(schema.shoppingListItems).where(eq(schema.shoppingListItems.id, itemId))
+}
+
 export function isShoppingItemUnit(value: unknown): value is ItemUnit {
   return (ITEM_UNITS as readonly unknown[]).includes(value)
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { mobileHouseholdForUser, mobileUserFromRequest, MobileRequestAuthError } from '@/lib/auth/mobile-request'
 import { ShoppingInputError } from '@/lib/shopping-input'
-import { isShoppingItemUnit, ShoppingResourceNotFoundError, toggleShoppingItemForHousehold, updateShoppingItemForHousehold } from '@/lib/shopping-list-service'
+import { isShoppingItemUnit, removeShoppingItemForHousehold, ShoppingResourceNotFoundError, toggleShoppingItemForHousehold, updateShoppingItemForHousehold } from '@/lib/shopping-list-service'
 import type { ItemCategory, ItemPriority } from '@/lib/types'
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
@@ -62,6 +62,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ itemI
       ...(body.store !== undefined && { store: body.store === null ? '' : body.store as string }),
       ...(body.productTypes !== undefined && { productTypes: body.productTypes as string[] | null }),
     })
+    return json({ ok: true })
+  } catch (error) {
+    return failure(error)
+  }
+}
+
+export async function DELETE(request: Request, context: { params: Promise<{ itemId: string }> }) {
+  try {
+    const authenticated = await requestHousehold(request)
+    if (!authenticated) return json({ error: 'household_required' }, 409)
+    const { itemId } = await context.params
+    await removeShoppingItemForHousehold(authenticated.householdId, itemId)
     return json({ ok: true })
   } catch (error) {
     return failure(error)

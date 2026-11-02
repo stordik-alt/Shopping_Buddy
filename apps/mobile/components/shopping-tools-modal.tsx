@@ -70,7 +70,7 @@ function useStyles() {
   }), [colors])
 }
 
-export function ShoppingToolsModal({ visible, items, listId, onClose, onProductAdded, onAuthExpired, guideStepId }: {
+export function ShoppingToolsModal({ visible, items, listId, onClose, onProductAdded, onAuthExpired, guideStepId, initialTargetItemId = null, initialQuery = null }: {
   visible: boolean
   items: MobileShoppingItem[]
   listId: string
@@ -78,6 +78,8 @@ export function ShoppingToolsModal({ visible, items, listId, onClose, onProductA
   onProductAdded: (item: MobileShoppingItem) => Promise<void>
   onAuthExpired: () => void
   guideStepId?: string | null
+  initialTargetItemId?: string | null
+  initialQuery?: string | null
 }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
@@ -104,8 +106,11 @@ export function ShoppingToolsModal({ visible, items, listId, onClose, onProductA
 
   useEffect(() => {
     if (!visible) return
-    setTab(guideStepId === 'shopping-search' ? 'products' : 'plan')
-  }, [guideStepId, visible])
+    const openProducts = Boolean(initialTargetItemId) || guideStepId === 'shopping-search'
+    setTab(openProducts ? 'products' : 'plan')
+    setTargetItemId(initialTargetItemId)
+    setQuery(initialQuery ?? '')
+  }, [guideStepId, initialQuery, initialTargetItemId, visible])
 
   const openItems = items.filter((item) => !item.done)
   const inputKey = JSON.stringify({ items: openItems.map(({ id, name, quantity, unit, productId, category, productTypes }) => [id, name, quantity, unit, productId, category, productTypes]), pins: pins.filter((pin) => openItems.some((item) => item.id === pin.itemId)).map(({ itemId, storeId, productId }) => [itemId, storeId, productId]).sort() })

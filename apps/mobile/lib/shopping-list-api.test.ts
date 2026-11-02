@@ -16,7 +16,7 @@ vi.mock('./auth', () => ({
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
 import { Observe } from 'expo-observe'
-import { addShoppingItem, buildShoppingPlan, cancelReceiptImport, confirmReceiptReview, createShoppingList, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, getStoreBranches, getStoreChains, getUsualItems, importManualReceipt, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, receiptImageUrl, resolveDuplicateReceipt, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, updateShoppingItem, uploadReceiptFile, uploadReceiptPhoto } from './shopping-list-api'
+import { addShoppingItem, buildShoppingPlan, cancelReceiptImport, confirmReceiptReview, createShoppingList, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, getStoreBranches, getStoreChains, getUsualItems, importManualReceipt, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, receiptImageUrl, removeShoppingItem, resolveDuplicateReceipt, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, updateShoppingItem, uploadReceiptFile, uploadReceiptPhoto } from './shopping-list-api'
 
 describe('mobile shopping-list API client', () => {
   beforeEach(() => {
@@ -63,6 +63,15 @@ describe('mobile shopping-list API client', () => {
     expect(fetch).toHaveBeenCalledWith(
       'https://anitka.example/api/mobile/shopping-list/item%2F1',
       expect.objectContaining({ method: 'PATCH', body: JSON.stringify(changes) }),
+    )
+  })
+
+  it('removes an individual list item through the authenticated endpoint', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    await removeShoppingItem('item/1')
+    expect(fetch).toHaveBeenCalledWith(
+      'https://anitka.example/api/mobile/shopping-list/item%2F1',
+      expect.objectContaining({ method: 'DELETE' }),
     )
   })
 

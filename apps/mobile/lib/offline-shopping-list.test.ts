@@ -54,6 +54,17 @@ describe('offline shopping list', () => {
     ])
   })
 
+  it('removes an item offline and cancels an unsynced local add', () => {
+    const id = createOfflineItemId(() => 0.5)
+    let operations: OfflineShoppingSnapshot['pending'] = [
+      { kind: 'add', item: item(id, { name: 'Sůl' }) },
+      { kind: 'update', itemId: id, changes: { quantity: 2 } },
+    ]
+    operations = enqueueOfflineOperation(operations, { kind: 'remove', itemId: id })
+    expect(operations).toEqual([{ kind: 'remove', itemId: id }])
+    expect(applyOfflineOperations(snapshot().list.items, operations)).toEqual([item('milk')])
+  })
+
   it('keeps shopping item metadata in an offline update', () => {
     const operations = enqueueOfflineOperation([], {
       kind: 'update',
@@ -82,6 +93,7 @@ describe('offline shopping list', () => {
       add: vi.fn().mockResolvedValue({ item: item('server-id', { name: 'Máslo' }) }),
       toggle: vi.fn().mockResolvedValue({ ok: true }),
       update: vi.fn(),
+      remove: vi.fn(),
     }
     const persist = vi.fn().mockResolvedValue(undefined)
 
@@ -101,11 +113,28 @@ describe('offline shopping list', () => {
       add: vi.fn().mockResolvedValue({ item: item('server-id', { name: 'Mléko', quantity: 1.5, unit: 'l' }) }),
       toggle: vi.fn(),
       update: vi.fn(),
+      remove: vi.fn(),
     }
 
     await syncOfflineOperations(initial, api, vi.fn().mockResolvedValue(undefined))
 
     expect(api.add).toHaveBeenCalledWith('Mléko', temporaryId.slice('offline-'.length), 1.5, 'l', { listId: 'list-1' })
+  })
+
+  it('syncs a queued removal and drops the item from the cached list', async () => {
+    const initial = snapshot([{ kind: 'remove', itemId: 'milk' }])
+    const api = {
+      add: vi.fn(),
+      toggle: vi.fn(),
+      update: vi.fn(),
+      remove: vi.fn().mockResolvedValue({ ok: true }),
+    }
+
+    const result = await syncOfflineOperations(initial, api, vi.fn().mockResolvedValue(undefined))
+
+    expect(api.remove).toHaveBeenCalledWith('milk')
+    expect(result.snapshot.list.items).toEqual([])
+    expect(result.snapshot.pending).toEqual([])
   })
 
   it('keeps the failed operation and later changes for retry after a network error', async () => {
@@ -117,6 +146,7 @@ describe('offline shopping list', () => {
       add: vi.fn(),
       toggle: vi.fn().mockRejectedValue({ status: 0, code: 'network_error' }),
       update: vi.fn(),
+      remove: vi.fn(),
     }
     const persist = vi.fn().mockResolvedValue(undefined)
 
@@ -136,6 +166,7 @@ describe('offline shopping list', () => {
       add: vi.fn(),
       toggle: vi.fn().mockRejectedValue({ status: 404, code: 'not_found' }),
       update: vi.fn().mockResolvedValue({ ok: true }),
+      remove: vi.fn(),
     }
     const persist = vi.fn().mockResolvedValue(undefined)
 

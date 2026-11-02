@@ -3,6 +3,7 @@ set -euo pipefail
 
 label="$1"
 shift
+reverse_port="${ANDROID_REVERSE_PORT:-3000}"
 
 test_output_dir=""
 original_args=("$@")
@@ -27,13 +28,19 @@ adb_transport_ready() {
   [[ "$booted" == "1" ]]
 }
 
+configure_adb_transport() {
+  adb reverse "tcp:${reverse_port}" "tcp:${reverse_port}" >/dev/null 2>&1 || true
+}
+
 wait_for_adb_transport() {
   if adb_transport_ready; then
+    configure_adb_transport
     return 0
   fi
   adb reconnect offline >/dev/null 2>&1 || true
   for ready_check in $(seq 1 30); do
     if adb_transport_ready; then
+      configure_adb_transport
       return 0
     fi
     if (( ready_check % 5 == 0 )); then

@@ -309,6 +309,8 @@ jobs:
           target: google_apis
           arch: x86_64
           disk-size: 8G
+          ram-size: 3072
+          heap-size: 512
           disable-linux-hw-accel: false
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim

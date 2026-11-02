@@ -178,6 +178,8 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
   const dashboardCategories = budget?.categories.slice().sort((a, b) => b.total - a.total) ?? []
   const dashboardCategoryMax = dashboardCategories[0]?.total ?? 1
   const shopping = dashboard?.list ?? null
+  const shoppingItemTotal = shopping ? shopping.remaining + shopping.completed : 0
+  const shoppingProgressPercent = shoppingItemTotal > 0 ? Math.round(((shopping?.completed ?? 0) / shoppingItemTotal) * 100) : 0
   const todayDay = DAYS[(new Date().getDay() + 6) % 7]
   const todayMeals = mealPlan?.weekStart === currentWeekStart(todayIso) ? mealPlan.days.find((day) => day.day === todayDay)?.meals ?? [] : []
   const preferredDealRows = preferredDeals ? [
@@ -251,6 +253,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
           <Text style={styles.cardEyebrow}>NÁKUPNÍ SEZNAM</Text>
           <Text style={styles.dashboardValue}>{shopping ? `${shopping.remaining} k nákupu` : 'Otevřít seznam'}</Text>
           {shopping ? <Text style={styles.bodyText}>{shopping.completed} položek hotovo</Text> : null}
+          {shopping ? <View accessibilityLabel={`Nákupní seznam dokončen z ${shoppingProgressPercent} procent`} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: shoppingProgressPercent }} style={styles.homeListProgressTrack}><View style={[styles.homeListProgressFill, { width: `${shoppingProgressPercent}%` }]} /></View> : null}
           {shopping?.pendingNames.map((item) => <Text key={item} numberOfLines={1} style={styles.noteText}>•  {item}</Text>)}
         </View>
         <ArrowRight color={colors.mutedText} size={20} />
@@ -1805,6 +1808,8 @@ function useStyles() {
   dashboardText: { flex: 1, minWidth: 0, gap: 2 },
   cardEyebrow: { color: colors.mutedText, fontSize: 10, fontWeight: '700', letterSpacing: 0.9 },
   dashboardValue: { color: colors.foreground, fontSize: 17, fontWeight: '700' },
+  homeListProgressTrack: { height: 7, overflow: 'hidden', borderRadius: 7, backgroundColor: colors.muted, marginTop: 3 },
+  homeListProgressFill: { height: '100%', borderRadius: 7, backgroundColor: colors.accent },
   sectionHeading: { color: colors.foreground, fontSize: 18, fontWeight: '700', marginTop: 8 },
   quickActions: { flexDirection: 'row', gap: 6, padding: 8, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 20 },
   quickAction: { flex: 1, minHeight: 76, alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingHorizontal: 2, paddingVertical: 8 },

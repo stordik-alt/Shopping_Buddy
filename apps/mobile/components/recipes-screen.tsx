@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { CookingPot } from 'lucide-react-native'
+import { ChevronDown, CookingPot } from 'lucide-react-native'
 import { MobileApiError, getPantry, getRecipe, getRecipeCollections, getRecipePricing, getRecipeRecommendations, searchRecipes, toggleRecipeFavorite, type MobileRecipe, type MobileRecipeCollection } from '../lib/shopping-list-api'
 import { getAccessToken } from '../lib/auth'
 import { RefreshButton } from './refresh-button'
@@ -67,6 +67,7 @@ export function RecipesScreen({ onAuthExpired, onAddToShopping }: { onAuthExpire
   const [sort, setSort] = useState<'relevance' | 'rating' | 'time'>('relevance')
   const [sourceId, setSourceId] = useState<string | null>(null)
   const [householdFilter, setHouseholdFilter] = useState(false)
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false)
   const [collections, setCollections] = useState<MobileRecipeCollection | null>(null)
   const [recommendations, setRecommendations] = useState<Awaited<ReturnType<typeof getRecipeRecommendations>> | null>(null)
   const [recommendationsLoading, setRecommendationsLoading] = useState(false)
@@ -314,10 +315,18 @@ export function RecipesScreen({ onAuthExpired, onAddToShopping }: { onAuthExpire
             </View>
             {recommendations.recipes.length ? recommendations.recipes.map((recipe) => <Pressable key={recipe.id} accessibilityRole="button" onPress={() => void openRecipe(recipe.id)} style={styles.recipeCard}><RecipePhoto title={recipe.title} token={imageToken} uri={recipe.imageUrl} /><View style={styles.cardText}><Text style={styles.cardTitle}>{recipe.title}</Text><Text style={styles.source}>{recipe.sourceName}</Text><Text style={styles.supporting}>Máte {recipe.coveredIngredientCount} z {recipe.ingredientCount} surovin doma · chybí {recipe.missingIngredientCount}</Text></View></Pressable>) : <View style={styles.emptyCard}><Text style={styles.sectionTitle}>Zásoby zatím recept nedoporučují</Text><Text style={styles.supporting}>Přidejte nebo roztřiďte potraviny v zásobách a zkuste to znovu.</Text></View>}
           </View> : null}
-          <View style={styles.modeRow}>
-            {[[null, 'Všechny zdroje'] as const, ...RECIPE_SOURCE_OPTIONS.map((source) => [source.id, source.name] as const)].map(([id, label]) => <Pressable key={id ?? 'all'} accessibilityRole="button" accessibilityState={{ selected: sourceId === id }} onPress={() => setSourceId(id)} style={[styles.modeChip, sourceId === id && styles.modeChipActive]}><Text style={[styles.modeText, sourceId === id && styles.modeTextActive]}>{label}</Text></Pressable>)}
-          </View>
-          <View style={styles.filtersRow}>{([['relevance', 'Doporučené'], ['rating', 'Hodnocení'], ['time', 'Čas']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: sort === value }} onPress={() => setSort(value)} style={[styles.filterChip, sort === value && styles.modeChipActive]}><Text style={[styles.modeText, sort === value && styles.modeTextActive]}>{label}</Text></Pressable>)}<Pressable accessibilityRole="checkbox" accessibilityState={{ checked: householdFilter }} onPress={() => setHouseholdFilter((value) => !value)} style={styles.filterChip}><Text style={styles.modeText}>{householdFilter ? '☑' : '☐'} Strava domácnosti</Text></Pressable></View>
+          <Pressable accessibilityRole="button" accessibilityState={{ expanded: advancedFiltersOpen }} onPress={() => setAdvancedFiltersOpen((open) => !open)} style={styles.advancedFiltersToggle}>
+            <Text style={styles.advancedFiltersToggleText}>Další filtry</Text>
+            <ChevronDown color={colors.accentText} size={18} style={advancedFiltersOpen ? styles.advancedFiltersChevronOpen : undefined} />
+          </Pressable>
+          {advancedFiltersOpen ? <View style={styles.advancedFiltersPanel}>
+            <Text style={styles.filterLabel}>Zdroj</Text>
+            <View style={styles.modeRow}>
+              {[[null, 'Všechny zdroje'] as const, ...RECIPE_SOURCE_OPTIONS.map((source) => [source.id, source.name] as const)].map(([id, label]) => <Pressable key={id ?? 'all'} accessibilityRole="button" accessibilityState={{ selected: sourceId === id }} onPress={() => setSourceId(id)} style={[styles.modeChip, sourceId === id && styles.modeChipActive]}><Text style={[styles.modeText, sourceId === id && styles.modeTextActive]}>{label}</Text></Pressable>)}
+            </View>
+            <Text style={styles.filterLabel}>Řazení</Text>
+            <View style={styles.filtersRow}>{([['relevance', 'Doporučené'], ['rating', 'Hodnocení'], ['time', 'Čas']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: sort === value }} onPress={() => setSort(value)} style={[styles.filterChip, sort === value && styles.modeChipActive]}><Text style={[styles.modeText, sort === value && styles.modeTextActive]}>{label}</Text></Pressable>)}<Pressable accessibilityRole="checkbox" accessibilityState={{ checked: householdFilter }} onPress={() => setHouseholdFilter((value) => !value)} style={styles.filterChip}><Text style={styles.modeText}>{householdFilter ? '☑' : '☐'} Strava domácnosti</Text></Pressable></View>
+          </View> : null}
           </> : null}
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
           {detailLoading ? (
@@ -403,6 +412,11 @@ function useStyles() {
   recommendationResults: { gap: 9, borderTopColor: colors.border, borderTopWidth: 1, paddingTop: 12 },
   recommendationResultsHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   recommendationHide: { color: colors.accentText, fontSize: 13, fontWeight: '700' },
+  advancedFiltersToggle: { minHeight: 42, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5, paddingHorizontal: 2 },
+  advancedFiltersToggleText: { color: colors.accentText, fontSize: 14, fontWeight: '700' },
+  advancedFiltersChevronOpen: { transform: [{ rotate: '180deg' }] },
+  advancedFiltersPanel: { gap: 7, borderRadius: 16, backgroundColor: colors.muted, padding: 12 },
+  filterLabel: { color: colors.secondaryText, fontSize: 12, fontWeight: '700' },
   secondaryButton: { minHeight: 44, justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card, paddingHorizontal: 12 },
   secondaryButtonText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   disabledButton: { opacity: 0.5 },

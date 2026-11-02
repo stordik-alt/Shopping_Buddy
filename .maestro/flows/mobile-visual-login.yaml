@@ -1,6 +1,8 @@
 appId: cz.shoppingbuddy.mobile
 ---
-- launchApp
+- launchApp:
+    permissions:
+      location: allow
 - extendedWaitUntil:
     visible: "E-mail"
     timeout: 120000

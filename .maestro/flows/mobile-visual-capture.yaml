@@ -1,6 +1,8 @@
 appId: cz.shoppingbuddy.mobile
 ---
-- launchApp
+- launchApp:
+    permissions:
+      location: allow
 - runFlow:
     when:
       visible: "Ahoj, já jsem Anitka!"

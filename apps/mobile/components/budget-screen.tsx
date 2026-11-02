@@ -662,12 +662,14 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, budgetPl
     <>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.scroll}>
         <View style={styles.heading}>
-          <View style={styles.headingText}>
-            <Text numberOfLines={1} style={styles.title}>Rozpočet domácnosti</Text>
-            {period ? <Text style={styles.supporting}>{dateLabel(period.start)} – {dateLabel(period.end)}</Text> : null}
+          <View style={styles.headingTop}>
+            <View style={styles.headingText}>
+              <Text style={styles.title}>Rozpočet domácnosti</Text>
+              {period ? <Text style={styles.supporting}>{dateLabel(period.start)} – {dateLabel(period.end)}</Text> : null}
+            </View>
+            <RefreshButton loading={loading} onPress={() => void load()} />
           </View>
-          <Pressable ref={addExpenseGuideTarget} accessibilityRole="button" disabled={!period || saving} onPress={() => { setEditorExpense(null); setEditorOpen(true) }} style={[styles.addButton, (!period || saving) && styles.disabled]}><Text style={styles.addButtonText}>＋ Výdaj</Text></Pressable>
-          <RefreshButton loading={loading} onPress={() => void load()} />
+          <Pressable ref={addExpenseGuideTarget} accessibilityLabel="Přidat výdaj" accessibilityRole="button" disabled={!period || saving} onPress={() => { setEditorExpense(null); setEditorOpen(true) }} style={[styles.addButton, (!period || saving) && styles.disabled]}><Text style={styles.addButtonText}>＋ Přidat výdaj</Text></Pressable>
         </View>
 
         <View style={styles.switcher}>
@@ -836,7 +838,8 @@ function useStyles() {
   return useMemo(() => StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingBottom: 24, gap: 14 },
-  heading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  heading: { gap: 8, paddingVertical: 6 },
+  headingTop: { minHeight: 44, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
   headingText: { flex: 1, minWidth: 0 },
   title: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
   supporting: { color: colors.secondaryText, fontSize: 13, lineHeight: 19, marginTop: 4 },
@@ -883,7 +886,7 @@ function useStyles() {
   switchTabActive: { backgroundColor: colors.card },
   switchText: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
   switchTextActive: { color: colors.foreground },
-  addButton: { backgroundColor: colors.accentSubtle, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 9 },
+  addButton: { alignSelf: 'flex-start', backgroundColor: colors.accentSubtle, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
   addButtonText: { color: colors.accentText, fontWeight: '700', fontSize: 13 },
   periodControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
   filterRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 4 },

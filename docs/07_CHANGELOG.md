@@ -38,13 +38,15 @@
 - Profil používá informační strukturu PWA s rozbalovacími kartami pro členy, děti, pozvánky, historii změn, smazání dat, obchody, nákupní preference, zásoby a upozornění. Karty jsou sbalené při vstupu, zobrazují krátké shrnutí a při zavření zachovají rozeditované formuláře; nativní volba vzhledu zůstává dostupná jako samostatná sekce.
 - Recepty nabízejí přímo na výchozí obrazovce zvýrazněnou akci „Co uvařit z toho, co mám doma?“. Doporučení podle zásob se načtou pod hledáním, zobrazí pokrytí surovin a jdou skrýt; původní tab „Podle zásob“ zůstává dostupný.
 - Detail prodejny v Obchodech jde rozbalit stejně jako v PWA. Android načte známé produkty až při otevření, zobrazí oblíbenou prodejnu a nabídne navigaci přes Mapy i přechod na akce konkrétního řetězce.
+- Jídelníček umí vyměnit pouze jedno vybrané jídlo přes „Jiný návrh“. Server používá společnou deterministickou funkci `regenerateMeal`, zachová ostatní dny, porce a rozpočet a odmítne případ, kdy v nabídce není jiný recept.
+- Odkazy z Domů otevírají přesný cíl: dnešní jídlo se v Jídelníčku zvýrazní a odscrolluje, položka seznamu z upozornění na končící akci otevře přímo svůj editor. Obecné odkazy zůstávají beze změny.
 - Upozornění „Dnes je důležité“ jsou seskupená do jedné karty. Sekce Profilu a filtry receptů se zalamují, takže se na 390 px neztrácí poslední volby mimo vodorovný viewport.
 - Recepty doplňují rychlé filtry PWA. Klepnutí na „Rychlé“, „Večeře“, „Oběd“, „Polévky“, „Maso“, „Těstoviny“, „Dezerty“ nebo „Bezmasé“ nastaví dotaz a rovnou spustí hledání.
 - Obchody umí použít foreground polohu zařízení, hledat řetězce v okruhu 5 km, zobrazit vzdálenost prodejen a vrátit se k ručnímu zadání města. Mobilní API validuje souřadnice a GPS výsledky se záměrně necachují; bez lokality se zobrazí výchozí dotaz jako v PWA.
 - Zásoby doplňují filtr podkategorie a přepínač spotřebovaných položek.
 - CI recovery pro Maestro ověřuje skutečný `adb shell`, rozpozná `device offline`, `DeviceServerDiedException`, nedokončený `Launch app` i další ztrátu ADB transportu a po restartu ADB zkusí flow až třikrát. Selhání, které není infrastrukturní, ukončí hned.
 - Produkční audit už nepočítá Expo CLI mezi produkční závislosti. Auth závislosti byly aktualizovány na `@neondatabase/auth@0.7.0-beta` a `better-auth@1.7.7`; `pnpm audit --prod --audit-level=high` prochází.
-- Ověřeno: Expo a kořenový TypeScript, 122 zaměřených testů rozpočtové logiky, plánovacího a obchodního API a mobilního API klienta a produkční dependency audit; Android screenshot běh nově ověřuje také načtení obchodů podle emulátorové polohy a otevření detailu prodejny.
+- Ověřeno: Expo a kořenový TypeScript, 187 zaměřených testů rozpočtové a jídelníčkové logiky, mobilních API a API klienta a produkční dependency audit; Android screenshot běh nově ověřuje také načtení obchodů podle emulátorové polohy a otevření detailu prodejny.
 
 ## 2026-10-25 — Vizuální kontrola Expo aplikace a interaktivní průvodce
 

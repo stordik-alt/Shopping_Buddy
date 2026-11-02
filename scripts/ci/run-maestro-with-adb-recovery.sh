@@ -98,6 +98,9 @@ for attempt in 1 2 3; do
   if ! adb_transport_ready; then
     transport_failed=true
   fi
+  if (( elapsed <= 120 )); then
+    transport_failed=true
+  fi
 
   if [[ "$attempt" -eq 3 ]] || [[ "$transport_failed" == false ]]; then
     tail -n 40 "$output_file" >&2

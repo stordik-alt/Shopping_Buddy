@@ -96,6 +96,16 @@ appId: cz.shoppingbuddy.mobile
     timeout: 30000
 - takeScreenshot:
     path: "${THEME}-stores-gps"
+- tapOn: "Albert"
+- extendedWaitUntil:
+    visible: "Albert · 1 prodejen"
+    timeout: 30000
+- tapOn: "Otevřít detail prodejny .*"
+- extendedWaitUntil:
+    visible: "Produkty, u kterých tu známe cenu"
+    timeout: 30000
+- takeScreenshot:
+    path: "${THEME}-store-detail"
 - tapOn:
     id: guide-nav-more
 - tapOn: "Recepty"

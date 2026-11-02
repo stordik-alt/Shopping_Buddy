@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { mobileHouseholdForUser, mobileUserFromRequest, MobileRequestAuthError } from '@/lib/auth/mobile-request'
 import { getChainTiles, searchBranches } from '@/lib/db/store-branch-search'
+import { getStoreProductNames } from '@/lib/db/queries'
 import { BRANCH_PAGE_SIZE, MAX_LOCALITY_TEXT, NEARBY_RADIUS_KM, type Locality } from '@/lib/stores/branch-search'
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
@@ -24,10 +25,15 @@ export async function GET(request: Request) {
     const latValue = params.get('lat')
     const lngValue = params.get('lng')
     const chainId = params.get('chainId')
+    const storeLocationId = params.get('storeLocationId')
     const page = Number(params.get('page') ?? '1')
     if (city.length > MAX_LOCALITY_TEXT) return json({ error: 'invalid_locality' }, 400)
     if (!Number.isInteger(page) || page < 1) return json({ error: 'invalid_page' }, 400)
     if (chainId != null && !UUID.test(chainId)) return json({ error: 'invalid_chain' }, 400)
+    if (storeLocationId != null) {
+      if (!UUID.test(storeLocationId)) return json({ error: 'invalid_store_location' }, 400)
+      return json({ products: await getStoreProductNames(storeLocationId) })
+    }
 
     let locality: Locality
     if (latValue != null || lngValue != null) {

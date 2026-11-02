@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { ArrowDown, ArrowRight, ArrowUp, Bell, ChevronDown, CookingPot, House, LocateFixed, MapPin, MoreHorizontal, Package, Pencil, PiggyBank, Plus, Repeat, ReceiptText, Search, ShoppingBag, ShoppingCart, Sparkles, Star, Store, Tag, Trash2, TrendingUp, Users, WalletCards, X } from 'lucide-react-native'
 import * as SecureStore from 'expo-secure-store'
 import * as Location from 'expo-location'
 import { useMobileTheme, type ThemePreference } from '../lib/theme'
 import { useNativeGuideTarget } from './native-guide-targets'
-import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, createMobileManualPurchase, deleteMobileAccount, deleteMobilePurchase, dismissNotification, dismissRestockSuggestion, getDashboardSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantrySettings, getPurchaseHistory, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, recordMobilePurchaseExpenses, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateMobilePurchaseItemExpenseSplits, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDashboardSummary, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
+import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, createMobileManualPurchase, deleteMobileAccount, deleteMobilePurchase, dismissNotification, dismissRestockSuggestion, getDashboardSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantrySettings, getPurchaseHistory, getStoreBranches, getStoreChains, getStoreProductNames, getStorePreferences, MobileApiError, recordMobilePurchaseExpenses, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateMobilePurchaseItemExpenseSplits, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDashboardSummary, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
 import { dismissalKey } from '../../../lib/pantry-restock'
 import { assessDealQuality, dealDiscount, effectivePrice } from '../../../lib/prices'
 import { DIET_AVOIDS, DIETS, dietLabels } from '../../../lib/diet'
@@ -322,7 +322,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
   )
 }
 
-export function NativeDealsScreen({ listNames, onAdd }: { listNames: string[]; onAdd: (name: string) => void }) {
+export function NativeDealsScreen({ listNames, onAdd, initialChain = null }: { listNames: string[]; onAdd: (name: string) => void; initialChain?: string | null }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
   const searchGuideTarget = useNativeGuideTarget('deals-search')
@@ -330,7 +330,7 @@ export function NativeDealsScreen({ listNames, onAdd }: { listNames: string[]; o
   const [category, setCategory] = useState<MobileDealCategory | 'all'>('all')
   const [sort, setSort] = useState<MobileDealSort>('discount')
   const [query, setQuery] = useState('')
-  const [chain, setChain] = useState<string | null>(null)
+  const [chain, setChain] = useState<string | null>(initialChain)
   const [forMe, setForMe] = useState(false)
   const [chainNames, setChainNames] = useState<string[]>([])
   const [page, setPage] = useState(1)
@@ -400,7 +400,7 @@ export function NativeDealsScreen({ listNames, onAdd }: { listNames: string[]; o
   )
 }
 
-export function NativeStoresScreen() {
+export function NativeStoresScreen({ onShowDeals }: { onShowDeals?: (chain: string) => void }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
   const searchGuideTarget = useNativeGuideTarget('stores-search')
@@ -410,6 +410,8 @@ export function NativeStoresScreen() {
   const [chains, setChains] = useState<MobileChainTile[]>([])
   const [selected, setSelected] = useState<MobileChainTile | null>(null)
   const [branches, setBranches] = useState<MobileBranchPage | null>(null)
+  const [openBranchId, setOpenBranchId] = useState<string | null>(null)
+  const [branchProducts, setBranchProducts] = useState<Record<string, { loading: boolean; error: string | null; products: string[] }>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
@@ -418,18 +420,20 @@ export function NativeStoresScreen() {
       setChains([])
       setSelected(null)
       setBranches(null)
+      setOpenBranchId(null)
+      setBranchProducts({})
       setLoading(false)
       setError(null)
       return () => { cancelled = true }
     }
     setLoading(true)
     const timer = setTimeout(() => {
-      getStoreChains(coords ?? city).then(({ chains: data }) => { if (!cancelled) { setChains(data); setSelected(null); setBranches(null) } }).catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : 'Obchody se nepodařilo načíst.') }).finally(() => { if (!cancelled) setLoading(false) })
+      getStoreChains(coords ?? city).then(({ chains: data }) => { if (!cancelled) { setChains(data); setSelected(null); setBranches(null); setOpenBranchId(null); setBranchProducts({}) } }).catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : 'Obchody se nepodařilo načíst.') }).finally(() => { if (!cancelled) setLoading(false) })
     }, coords ? 0 : 400)
     return () => { cancelled = true; clearTimeout(timer) }
   }, [city, coords])
   async function openChain(chain: MobileChainTile) {
-    setSelected(chain); setBranches(null); setLoading(true); setError(null)
+    setSelected(chain); setBranches(null); setOpenBranchId(null); setBranchProducts({}); setLoading(true); setError(null)
     try { setBranches(await getStoreBranches(coords ?? city, chain.storeId)) } catch (caught) { setError(caught instanceof Error ? caught.message : 'Prodejny se nepodařilo načíst.') } finally { setLoading(false) }
   }
   async function requestLocation() {
@@ -453,6 +457,31 @@ export function NativeStoresScreen() {
     setCoords(null)
     setLocationState('idle')
     setCity('')
+  }
+  async function toggleBranch(branch: MobileBranchPage['rows'][number]) {
+    if (openBranchId === branch.id) {
+      setOpenBranchId(null)
+      return
+    }
+    setOpenBranchId(branch.id)
+    if (branchProducts[branch.id]) return
+    setBranchProducts((current) => ({ ...current, [branch.id]: { loading: true, error: null, products: [] } }))
+    try {
+      const result = await getStoreProductNames(branch.id)
+      setBranchProducts((current) => ({ ...current, [branch.id]: { loading: false, error: null, products: result.products } }))
+    } catch (caught) {
+      setBranchProducts((current) => ({
+        ...current,
+        [branch.id]: { loading: false, error: caught instanceof Error ? caught.message : 'Produkty se nepodařilo načíst.', products: [] },
+      }))
+    }
+  }
+  async function navigateToBranch(gps: { lat: number; lng: number }) {
+    try {
+      await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${gps.lat},${gps.lng}`)
+    } catch {
+      setError('Navigaci se nepodařilo otevřít.')
+    }
   }
   return <ScrollView contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled">
     <View style={styles.storeIntro}><Text style={styles.storeDirectoryTitle}>Kde nakoupit</Text><Text style={styles.bodyText}>Vyberte lokalitu a řetězce, porovnejte otevírací dobu a akce.</Text></View>
@@ -480,7 +509,29 @@ export function NativeStoresScreen() {
       <NativeStoreMark chain={chain.chain} /><View style={styles.dashboardText}><Text style={styles.cardTitle}>{chain.chain}</Text><Text style={styles.bodyText}>{chain.branchCount} prodejen · {chain.dealsCount} dnešních akcí</Text></View><ArrowRight color={colors.mutedText} size={19} />
     </Pressable>) : <>
       <Text style={styles.sectionHeading}>{selected.chain} · {branches?.total ?? 0} prodejen</Text>
-      {branches?.rows.map((branch) => <View key={branch.id} style={styles.branchCard}><NativeStoreMark chain={branch.chain} /><View style={styles.dashboardText}><Text style={styles.cardTitle}>{branch.name}</Text><Text style={styles.bodyText}>{branch.address}, {branch.city}</Text>{branch.hours || branch.distanceKm != null ? <Text style={styles.noteText}>{[branch.hours, branch.distanceKm != null ? `${branch.distanceKm.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} km` : null].filter(Boolean).join(' · ')}</Text> : null}</View></View>)}
+      {branches?.rows.map((branch) => {
+        const expanded = openBranchId === branch.id
+        const products = branchProducts[branch.id]
+        return <View key={branch.id} style={styles.branchGroup}>
+          <Pressable accessibilityLabel={`Otevřít detail prodejny ${branch.name}`} accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => void toggleBranch(branch)} style={styles.branchCard}>
+            <NativeStoreMark chain={branch.chain} />
+            <View style={styles.dashboardText}>
+              <View style={styles.branchNameRow}><Text style={styles.cardTitle}>{branch.name}</Text>{branch.isFavorite ? <Star color={colors.warning} fill={colors.warning} size={15} /> : null}</View>
+              <Text style={styles.bodyText}>{branch.address}, {branch.city}</Text>
+              {branch.hours || branch.distanceKm != null ? <Text style={styles.noteText}>{[branch.hours, branch.distanceKm != null ? `${branch.distanceKm.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} km` : null].filter(Boolean).join(' · ')}</Text> : null}
+            </View>
+            <ChevronDown color={colors.mutedText} size={18} style={expanded ? styles.branchChevronOpen : undefined} />
+          </Pressable>
+          {expanded ? <View style={styles.branchDetail}>
+            <Text style={styles.profileFieldLabel}>Produkty, u kterých tu známe cenu</Text>
+            {products?.loading ? <ActivityIndicator color={colors.primary} /> : products?.error ? <Text accessibilityRole="alert" style={styles.error}>{products.error}</Text> : products?.products.length ? <View style={styles.productChips}>{products.products.map((product) => <View key={product} style={styles.productChip}><Text style={styles.productChipText}>{product}</Text></View>)}</View> : <Text style={styles.noteText}>U této prodejny zatím neznáme žádné ceny.</Text>}
+            <View style={styles.branchActions}>
+              {branch.gps ? <Pressable accessibilityRole="button" onPress={() => void navigateToBranch(branch.gps!)} style={styles.branchAction}><LocateFixed color={colors.accentText} size={16} /><Text style={styles.branchActionText}>Navigovat</Text></Pressable> : null}
+              {onShowDeals ? <Pressable accessibilityRole="button" onPress={() => onShowDeals(branch.chain)} style={styles.branchAction}><Tag color={colors.accentText} size={16} /><Text style={styles.branchActionText}>Zobrazit akce</Text></Pressable> : null}
+            </View>
+          </View> : null}
+        </View>
+      })}
       {branches?.total === 0 ? <View style={styles.emptyCard}><Text style={styles.bodyText}>Pro tento řetězec zde nejsou evidované prodejny.</Text></View> : null}
     </>}
     {!loading && !selected && (coords || city.trim()) && chains.length === 0 ? <View style={styles.emptyCard}><Text style={styles.bodyText}>Pro toto místo se nepodařilo najít obchody.</Text></View> : null}
@@ -1820,7 +1871,17 @@ function useStyles() {
   storeLogo: { width: 44, height: 44, flexShrink: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 13, backgroundColor: '#ffffff' },
   storeLogoImage: { width: 38, height: 38 },
   storeLogoText: { color: '#172033', fontSize: 10, fontWeight: '800' },
-  branchCard: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 12 },
+  branchGroup: { overflow: 'hidden', borderColor: colors.border, borderWidth: 1, borderRadius: 16, backgroundColor: colors.card },
+  branchCard: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.card, padding: 12 },
+  branchNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  branchChevronOpen: { transform: [{ rotate: '180deg' }] },
+  branchDetail: { gap: 9, borderTopColor: colors.border, borderTopWidth: 1, backgroundColor: colors.accentSubtle, padding: 12 },
+  productChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  productChip: { borderRadius: 14, backgroundColor: colors.card, paddingHorizontal: 9, paddingVertical: 6 },
+  productChipText: { color: colors.secondaryText, fontSize: 11, fontWeight: '600' },
+  branchActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 2 },
+  branchAction: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 11, backgroundColor: colors.card, paddingHorizontal: 11 },
+  branchActionText: { color: colors.accentText, fontSize: 12, fontWeight: '700' },
   purchaseCard: { gap: 10, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 14 },
   purchaseStats: { gap: 8 },
   purchaseStat: { minHeight: 76, gap: 4, padding: 12, borderRadius: 15, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },

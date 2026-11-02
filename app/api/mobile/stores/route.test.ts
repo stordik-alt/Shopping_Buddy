@@ -4,6 +4,7 @@ const mobileUserFromRequest = vi.fn()
 const mobileHouseholdForUser = vi.fn()
 const getChainTiles = vi.fn()
 const searchBranches = vi.fn()
+const getStoreProductNames = vi.fn()
 
 vi.mock('@/lib/auth/mobile-request', async (original) => ({
   ...(await original<typeof import('@/lib/auth/mobile-request')>()),
@@ -13,6 +14,9 @@ vi.mock('@/lib/auth/mobile-request', async (original) => ({
 vi.mock('@/lib/db/store-branch-search', () => ({
   getChainTiles: (...args: unknown[]) => getChainTiles(...args),
   searchBranches: (...args: unknown[]) => searchBranches(...args),
+}))
+vi.mock('@/lib/db/queries', () => ({
+  getStoreProductNames: (...args: unknown[]) => getStoreProductNames(...args),
 }))
 
 import { GET } from '@/app/api/mobile/stores/route'
@@ -27,6 +31,7 @@ describe('/api/mobile/stores', () => {
     mobileHouseholdForUser.mockResolvedValue({ id: 'member-1', householdId: 'household-1', role: 'member' })
     getChainTiles.mockResolvedValue([{ storeId: chainId, chain: 'Albert', branchCount: 2, dealsCount: 1, isFavorite: false }])
     searchBranches.mockResolvedValue({ rows: [], total: 0, page: 1 })
+    getStoreProductNames.mockResolvedValue(['Mléko', 'Rýže'])
   })
 
   it('searches chain tiles in a typed city', async () => {
@@ -59,6 +64,23 @@ describe('/api/mobile/stores', () => {
       center: { lat: 50.087, lng: 14.421 },
       radiusKm: 5,
     }, 'member-1')
+  })
+
+  it('loads product names only for an expanded store detail', async () => {
+    mobileHouseholdForUser.mockResolvedValueOnce(null)
+    expect((await GET(request(`?storeLocationId=${chainId}`))).status).toBe(409)
+
+    mobileHouseholdForUser.mockResolvedValue({ id: 'member-1', householdId: 'household-1', role: 'member' })
+    const response = await GET(request(`?storeLocationId=${chainId}`))
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ products: ['Mléko', 'Rýže'] })
+    expect(getStoreProductNames).toHaveBeenCalledWith(chainId)
+    expect(getChainTiles).not.toHaveBeenCalled()
+  })
+
+  it('rejects an invalid store detail id', async () => {
+    expect((await GET(request('?storeLocationId=not-a-uuid'))).status).toBe(400)
+    expect(getStoreProductNames).not.toHaveBeenCalled()
   })
 
   it.each([

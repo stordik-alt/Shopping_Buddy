@@ -515,6 +515,10 @@ export function getStoreBranches(locality: MobileStoreLocality, chainId: string,
   return request<MobileBranchPage>(`/api/mobile/stores?${params.toString()}`)
 }
 
+export function getStoreProductNames(storeLocationId: string) {
+  return request<{ products: string[] }>(`/api/mobile/stores?storeLocationId=${encodeURIComponent(storeLocationId)}`)
+}
+
 export function getStorePreferences() {
   return request<MobileStorePreferenceData>('/api/mobile/store-preferences')
 }

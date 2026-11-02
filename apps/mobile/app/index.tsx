@@ -340,6 +340,7 @@ export default function HomeScreen() {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const [quickExpenseToken, setQuickExpenseToken] = useState(0)
   const [budgetPlanningToken, setBudgetPlanningToken] = useState(0)
+  const [dealsInitialChain, setDealsInitialChain] = useState<string | null>(null)
   const [pantryReviewToken, setPantryReviewToken] = useState(0)
   const [focusedTarget, setFocusedTarget] = useState<FocusedNativeTarget | null>(null)
   const [signedIn, setSignedIn] = useState(false)
@@ -1389,9 +1390,9 @@ export default function HomeScreen() {
                 )}
               </>
             ) : activeTab === 'deals' ? (
-              <NativeDealsScreen listNames={items.filter((item) => !item.done).map((item) => item.name)} onAdd={(name) => { setActiveTab('shopping'); setShoppingView('list'); setNewName(name); void handleAdd(name) }} />
+              <NativeDealsScreen initialChain={dealsInitialChain} listNames={items.filter((item) => !item.done).map((item) => item.name)} onAdd={(name) => { setActiveTab('shopping'); setShoppingView('list'); setNewName(name); void handleAdd(name) }} />
             ) : activeTab === 'stores' ? (
-              <NativeStoresScreen />
+              <NativeStoresScreen onShowDeals={(chain) => { setDealsInitialChain(chain); setActiveTab('deals') }} />
             ) : activeTab === 'profile' ? (
               <NativeProfileScreen
                 email={userEmail}
@@ -1452,7 +1453,7 @@ export default function HomeScreen() {
           </Pressable>
         </View> : null}
         </View>
-        {householdAvailable ? <NativeBottomNav active={activeTab} onSelect={setActiveTab} guideTargetRefs={{ home: homeNavGuideTarget, shopping: shoppingNavGuideTarget, pantry: pantryNavGuideTarget, budget: budgetNavGuideTarget, more: moreGuideTarget }} /> : null}
+        {householdAvailable ? <NativeBottomNav active={activeTab} onSelect={(tab) => { if (tab === 'deals') setDealsInitialChain(null); setActiveTab(tab) }} guideTargetRefs={{ home: homeNavGuideTarget, shopping: shoppingNavGuideTarget, pantry: pantryNavGuideTarget, budget: budgetNavGuideTarget, more: moreGuideTarget }} /> : null}
       </KeyboardAvoidingView>
       <NativeAssistantModal onClose={() => setAssistantOpen(false)} onShopping={() => setActiveTab('shopping')} visible={assistantOpen} />
       <NativeGuideModal onClose={() => { setGuideOpen(false); setGuideStepId(null); void SecureStore.setItemAsync(GUIDE_DONE_KEY, 'done').catch(() => undefined) }} onNavigate={navigateGuide} visible={guideOpen} />

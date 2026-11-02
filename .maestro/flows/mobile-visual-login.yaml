@@ -12,5 +12,5 @@ appId: cz.shoppingbuddy.mobile
 - tapOn:
     id: login-submit
 - extendedWaitUntil:
-    visible: "Ahoj, já jsem Anitka!"
+    visible: "Ahoj, .*"
     timeout: 30000

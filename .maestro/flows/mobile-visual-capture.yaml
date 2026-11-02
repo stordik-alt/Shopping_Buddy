@@ -71,9 +71,14 @@ appId: cz.shoppingbuddy.mobile
 - takeScreenshot:
     path: "${THEME}-budget"
 - tapOn: "Plán"
-- assertVisible: "Příjmy"
 - takeScreenshot:
     path: "${THEME}-budget-plan"
+- scrollUntilVisible:
+    element:
+      text: "Příjmy"
+    direction: DOWN
+    timeout: 30000
+- assertVisible: "Příjmy"
 
 - tapOn:
     id: guide-nav-more

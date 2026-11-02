@@ -224,8 +224,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
         </View>
         <ArrowRight color={colors.mutedText} size={20} />
       </Pressable>
-      <Text style={styles.sectionHeading}>Rychlé akce</Text>
-      <View style={styles.quickActions}>
+      <View accessibilityLabel="Rychlé akce" style={styles.quickActions}>
         {[
           { label: 'Do nákupu', Icon: Plus, action: () => onSelect('shopping') },
           { label: 'Výdaj', Icon: WalletCards, action: onQuickExpense },
@@ -233,7 +232,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
           { label: 'Obchody', Icon: MapPin, action: () => onSelect('stores') },
         ].map(({ label, Icon, action }) => (
           <Pressable accessibilityRole="button" accessibilityLabel={label} key={label} onPress={action} style={styles.quickAction}>
-            <Icon color={colors.primary} size={21} />
+            <View style={styles.quickActionIcon}><Icon color={colors.accentText} size={20} /></View>
             <Text style={styles.quickActionLabel}>{label}</Text>
           </Pressable>
         ))}
@@ -1563,8 +1562,9 @@ function useStyles() {
   cardEyebrow: { color: colors.mutedText, fontSize: 10, fontWeight: '700', letterSpacing: 0.9 },
   dashboardValue: { color: colors.foreground, fontSize: 17, fontWeight: '700' },
   sectionHeading: { color: colors.foreground, fontSize: 18, fontWeight: '700', marginTop: 8 },
-  quickActions: { flexDirection: 'row', gap: 8 },
-  quickAction: { flex: 1, minHeight: 82, alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 8 },
+  quickActions: { flexDirection: 'row', gap: 6, padding: 8, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 20 },
+  quickAction: { flex: 1, minHeight: 76, alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingHorizontal: 2, paddingVertical: 8 },
+  quickActionIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.accentSubtle },
   quickActionLabel: { color: colors.foreground, fontSize: 12, fontWeight: '600' },
   tabBar: { flexDirection: 'row', alignItems: 'stretch', justifyContent: 'space-around', paddingHorizontal: 6, paddingTop: 6, paddingBottom: 4, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card },
   tabButton: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 54, gap: 2 },

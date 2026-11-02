@@ -28,6 +28,7 @@ appId: cz.shoppingbuddy.mobile
     id: guide-nav-more
 - tapOn: "Profil"
 - tapOn: "Vzhled"
+- tapOn: "Barevný režim"
 - runFlow:
     when:
       true: ${THEME == 'light'}

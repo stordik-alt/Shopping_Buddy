@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import { AlertTriangle, CalendarDays, ChevronRight } from 'lucide-react-native'
+import { AlertTriangle, CalendarClock, CalendarDays, ChevronRight } from 'lucide-react-native'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { BUDGET_WARNING_RATIO, budgetLevel } from '../../../lib/budget'
+import { BUDGET_WARNING_RATIO, budgetAllowances, budgetLevel, type BudgetAllowances } from '../../../lib/budget'
 import { useMobileTheme } from '../lib/theme'
 
 const HERO_MUTED = 'rgba(255, 255, 255, 0.78)'
@@ -119,6 +119,108 @@ export function NativeBudgetHero({
   return <View style={[styles.hero, compact && styles.heroCompact]}>{content}</View>
 }
 
+export function NativeBudgetAllowances({
+  budget,
+  spent,
+  currency,
+  today,
+  periodEnd,
+  onSetBudget,
+}: {
+  budget: number
+  spent: number
+  currency: string
+  today?: string
+  periodEnd?: string
+  onSetBudget?: () => void
+}) {
+  const styles = useStyles()
+  const daysLeft = nativeBudgetDaysLeft(today, periodEnd)
+  const allowances = budgetAllowances(budget, spent, daysLeft ?? 0)
+
+  return (
+    <View accessibilityLabel="Doporučená útrata" style={styles.allowancesGrid}>
+      <NativeAllowanceCard
+        allowances={allowances}
+        currency={currency}
+        daysLeft={daysLeft ?? 0}
+        kind="day"
+        onSetBudget={onSetBudget}
+      />
+      <NativeAllowanceCard
+        allowances={allowances}
+        currency={currency}
+        daysLeft={daysLeft ?? 0}
+        kind="week"
+        onSetBudget={onSetBudget}
+      />
+    </View>
+  )
+}
+
+function NativeAllowanceCard({
+  allowances,
+  currency,
+  daysLeft,
+  kind,
+  onSetBudget,
+}: {
+  allowances: BudgetAllowances
+  currency: string
+  daysLeft: number
+  kind: 'day' | 'week'
+  onSetBudget?: () => void
+}) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
+  const title = kind === 'day' ? 'Doporučená útrata na den' : 'Doporučená útrata na týden'
+  const weekDays = Math.min(7, daysLeft)
+
+  return (
+    <View accessibilityLabel={title} style={styles.allowanceCard}>
+      <View style={styles.allowanceHeading}>
+        <CalendarClock color={colors.secondaryText} size={15} />
+        <Text style={styles.allowanceTitle}>{title}</Text>
+      </View>
+      {allowances.status === 'available' ? (
+        <>
+          <Text style={styles.allowanceAmount}>{money(kind === 'day' ? allowances.perDay : allowances.perWeek, currency)}</Text>
+          <Text style={styles.allowanceDescription}>
+            Orientačně {kind === 'day' ? 'na den' : `na ${dayCountLabel(weekDays)}`}; dnešek se počítá.
+          </Text>
+        </>
+      ) : allowances.status === 'overspent' ? (
+        <>
+          <Text style={styles.allowanceDanger}>Překročeno o {money(allowances.overrun, currency)}</Text>
+          <Text style={styles.allowanceDescription}>Teď je potřeba omezit výdaje; kladná útrata se nedoporučuje.</Text>
+        </>
+      ) : allowances.status === 'exhausted' ? (
+        <>
+          <Text style={styles.allowanceStatus}>Rozpočet je vyčerpán</Text>
+          <Text style={styles.allowanceDescription}>Další výdaje by znamenaly překročení limitu.</Text>
+        </>
+      ) : allowances.status === 'missing-budget' ? (
+        <>
+          <Text style={styles.allowanceStatus}>Chybí rozpočtový limit</Text>
+          {onSetBudget ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Nastavit limit" hitSlop={8} onPress={onSetBudget}>
+              <Text style={styles.allowanceLink}>Nastavit limit</Text>
+            </Pressable>
+          ) : null}
+        </>
+      ) : (
+        <Text style={styles.allowanceStatus}>Rozpočtové období skončilo</Text>
+      )}
+    </View>
+  )
+}
+
+function dayCountLabel(days: number) {
+  if (days === 1) return '1 den'
+  if (days >= 2 && days <= 4) return `${days} dny`
+  return `${days} dní`
+}
+
 function money(amount: number, currency: string) {
   const rounded = Math.round(amount)
   try {
@@ -157,5 +259,14 @@ function useStyles() {
     spentStrong: { color: colors.heroForeground, fontWeight: '700' },
     paceRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, borderTopColor: HERO_DIVIDER, borderTopWidth: 1, paddingTop: 9 },
     paceText: { flex: 1, color: HERO_MUTED, fontSize: 12, lineHeight: 17 },
+    allowancesGrid: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
+    allowanceCard: { flexBasis: '46%', flexGrow: 1, minWidth: 0, minHeight: 130, gap: 5, borderColor: colors.border, borderRadius: 18, borderWidth: 1, backgroundColor: colors.card, padding: 13 },
+    allowanceHeading: { minHeight: 38, flexDirection: 'row', alignItems: 'flex-start', gap: 5 },
+    allowanceTitle: { flex: 1, color: colors.secondaryText, fontSize: 12, lineHeight: 17, fontWeight: '600' },
+    allowanceAmount: { color: colors.foreground, fontSize: 20, lineHeight: 25, fontWeight: '700', letterSpacing: -0.3 },
+    allowanceStatus: { color: colors.foreground, fontSize: 14, lineHeight: 19, fontWeight: '700' },
+    allowanceDanger: { color: colors.destructive, fontSize: 14, lineHeight: 19, fontWeight: '700' },
+    allowanceDescription: { color: colors.mutedText, fontSize: 11, lineHeight: 16 },
+    allowanceLink: { color: colors.accentText, fontSize: 12, lineHeight: 18, fontWeight: '700', textDecorationLine: 'underline' },
   }), [colors])
 }

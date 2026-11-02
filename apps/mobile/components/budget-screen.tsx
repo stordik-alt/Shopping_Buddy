@@ -66,7 +66,7 @@ import { RecurringPaymentsScreen } from './recurring-payments-screen'
 import { RecurringIncomesScreen } from './recurring-incomes-screen'
 import { PocketsScreen } from './pockets-screen'
 import { BudgetAdvancedScreen } from './budget-advanced-screen'
-import { NativeBudgetHero } from './native-budget-hero'
+import { NativeBudgetAllowances, NativeBudgetHero } from './native-budget-hero'
 import type { RecurringPayment, RecurringPaymentInput } from '../../../lib/recurring-payments'
 import type { RecurringIncome, RecurringIncomeInput } from '../../../lib/recurring-incomes'
 import type { Pocket } from '../../../lib/types'
@@ -690,6 +690,14 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, budgetPl
               onSetBudget={() => setView('planning')}
               periodEnd={summary.period.end}
               remaining={summary.remaining}
+              spent={summary.spent}
+              today={periodSettings?.today ?? todayLocal()}
+            />
+            <NativeBudgetAllowances
+              budget={summary.budget}
+              currency={summary.currency}
+              onSetBudget={() => setView('planning')}
+              periodEnd={summary.period.end}
               spent={summary.spent}
               today={periodSettings?.today ?? todayLocal()}
             />

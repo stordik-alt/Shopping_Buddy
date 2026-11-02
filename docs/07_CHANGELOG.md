@@ -31,7 +31,9 @@
 - Nákupní seznam nabízí „Nechat displej svítit“ přes `expo-keep-awake`.
 - Domovská obrazovka řadí rychlé akce hned po rozpočtu a nákupním seznamu; rozpočtová karta doplňuje doporučenou denní částku a počet dní do konce období.
 - Zásoby doplňují filtr podkategorie a přepínač spotřebovaných položek.
-- Ověřeno: Expo a kořenový TypeScript, 41 cílených Vitest testů a Android screenshot opravy zásob. Kořenový TypeScript při plném souběžném běhu narazil na OOM a byl zopakován s větším heapem.
+- CI recovery pro Maestro rozpozná `device offline`, `DeviceServerDiedException` a další ztrátu ADB transportu i tehdy, když se zařízení při následné kontrole už hlásí jako připojené, a průchod jednou zopakuje.
+- Produkční audit už nepočítá Expo CLI mezi produkční závislosti. Auth závislosti byly aktualizovány na `@neondatabase/auth@0.7.0-beta` a `better-auth@1.7.7`; `pnpm audit --prod --audit-level=high` prochází.
+- Ověřeno: Expo a kořenový TypeScript, 41 cílených Vitest testů, produkční dependency audit a Android screenshot opravy zásob.
 
 ## 2026-10-25 — Vizuální kontrola Expo aplikace a interaktivní průvodce
 

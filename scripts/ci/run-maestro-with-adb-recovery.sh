@@ -21,19 +21,27 @@ for attempt in 1 2; do
     continue
   fi
 
-  if "$@"; then
+  output_file="$(mktemp)"
+  if "$@" 2>&1 | tee "$output_file"; then
+    rm -f "$output_file"
     exit 0
   else
     status=$?
   fi
 
   state="$(adb get-state 2>/dev/null || true)"
-  if [[ "$state" == "device" || "$attempt" -eq 2 ]]; then
+  transport_failed=false
+  if grep -Eq 'device offline|DeviceServerDiedException|device server died|UNAVAILABLE' "$output_file"; then
+    transport_failed=true
+  fi
+  rm -f "$output_file"
+
+  if [[ "$attempt" -eq 2 ]] || { [[ "$state" != "device" ]] && [[ "$transport_failed" == false ]]; }; then
     echo "Maestro flow '$label' failed (device state: ${state:-unknown}, exit: $status)." >&2
     exit "$status"
   fi
 
-  echo "ADB device went offline during '$label'; restarting ADB transport and retrying once." >&2
+  echo "ADB transport failed during '$label'; restarting ADB transport and retrying once." >&2
   adb kill-server || true
   adb start-server
 done

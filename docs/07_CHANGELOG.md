@@ -27,6 +27,7 @@
 
 - Zásoby už po otevření neposouvají celý obsah mimo obrazovku: hlavička se zalamuje a místa jsou v responzivní mřížce. Na Android emulátoru se ověřilo zobrazení všech šesti míst, počtů a položky Rýže.
 - Nákupní seznam má filtry textu a kategorie, skrytí hotových položek, řazení podle názvu nebo priority, seskupení podle kategorie nebo obchodu a volbu si pamatuje v SecureStore.
+- Řádky nákupního seznamu zobrazují kategorii, preferovaný obchod, poznámku a výrazné označení vysoké priority stejně jako PWA.
 - Detail položky nákupního seznamu umí upravit kategorii, preferovaný obchod, prioritu a poznámku vedle množství a jednotky. Změny procházejí offline frontou a jsou validované stejnou serverovou službou jako PWA.
 - Nákupní seznam nabízí „Nechat displej svítit“ přes `expo-keep-awake`.
 - Domovská obrazovka řadí rychlé akce hned po rozpočtu a nákupním seznamu; rozpočtová karta doplňuje doporučenou denní částku a počet dní do konce období.

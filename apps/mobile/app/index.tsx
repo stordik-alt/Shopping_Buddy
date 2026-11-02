@@ -300,9 +300,14 @@ function ShoppingRow({
       </Pressable>
       <View style={styles.itemText}>
         <Text style={[styles.itemName, item.done && styles.itemDone]}>{item.name}</Text>
+        <View style={styles.itemMetaRow}>
+          <Text numberOfLines={1} style={styles.itemMeta}>{item.category ?? 'Bez kategorie'} · {item.store ?? 'Bez obchodu'}</Text>
+          {item.priority === 'Vysoká' ? <Text style={styles.itemPriority}>Priorita</Text> : null}
+        </View>
         <Text style={styles.itemQuantity}>
           {item.quantity} {unitLabel(item.quantity, item.unit)}
         </Text>
+        {item.note ? <Text numberOfLines={2} style={styles.itemNote}>{item.note}</Text> : null}
         {item.pending ? <Text style={styles.pendingLabel}>Čeká na synchronizaci</Text> : null}
       </View>
       <Pressable ref={guideTargetRef} accessibilityLabel={`Upravit množství položky ${item.name}`} accessibilityRole="button" disabled={disabled} onPress={onEdit} style={styles.secondaryButton}>
@@ -1590,7 +1595,11 @@ function useStyles() {
   itemText: { flex: 1, minWidth: 0 },
   itemName: { color: colors.foreground, fontSize: 16, fontWeight: '600' },
   itemDone: { color: colors.mutedText, textDecorationLine: 'line-through' },
+  itemMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+  itemMeta: { flex: 1, color: colors.mutedText, fontSize: 12 },
+  itemPriority: { color: colors.destructive, backgroundColor: colors.destructiveSubtle, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, fontSize: 10, fontWeight: '800' },
   itemQuantity: { color: colors.secondaryText, fontSize: 13, marginTop: 4 },
+  itemNote: { color: colors.secondaryText, fontSize: 12, marginTop: 3 },
   emptyState: { alignItems: 'center', justifyContent: 'center', margin: 16, padding: 28, backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 8 },
   units: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   unitButton: { minHeight: 44, minWidth: 48, borderColor: colors.inputBorder, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },

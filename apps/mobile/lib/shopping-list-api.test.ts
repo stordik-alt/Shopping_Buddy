@@ -16,7 +16,7 @@ vi.mock('./auth', () => ({
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
 import { Observe } from 'expo-observe'
-import { addShoppingItem, buildShoppingPlan, cancelReceiptImport, confirmReceiptReview, createShoppingList, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, getUsualItems, importManualReceipt, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, receiptImageUrl, resolveDuplicateReceipt, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, updateShoppingItem, uploadReceiptFile, uploadReceiptPhoto } from './shopping-list-api'
+import { addShoppingItem, buildShoppingPlan, cancelReceiptImport, confirmReceiptReview, createShoppingList, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, getStoreBranches, getStoreChains, getUsualItems, importManualReceipt, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, receiptImageUrl, resolveDuplicateReceipt, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, updateShoppingItem, uploadReceiptFile, uploadReceiptPhoto } from './shopping-list-api'
 
 describe('mobile shopping-list API client', () => {
   beforeEach(() => {
@@ -98,6 +98,29 @@ describe('mobile shopping-list API client', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://anitka.example/api/mobile/shopping-list', expect.objectContaining({ body: JSON.stringify({ name: 'Prášek', clientId: 'client-5', listId: 'list-2' }) }))
     expect(fetchMock).toHaveBeenNthCalledWith(3, 'https://anitka.example/api/mobile/usual-items?listId=list-2', expect.any(Object))
     expect(fetchMock).toHaveBeenNthCalledWith(4, 'https://anitka.example/api/mobile/shopping-lists', expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Lékárna' }) }))
+  })
+
+  it('sends foreground coordinates to both store directory requests', async () => {
+    const fetchMock = vi.mocked(fetch)
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ chains: [] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rows: [], total: 0, page: 2 }), { status: 200 }))
+    const locality = { lat: 50.087, lng: 14.421 }
+    const chainId = '11111111-1111-4111-8111-111111111111'
+
+    await getStoreChains(locality)
+    await getStoreBranches(locality, chainId, 2)
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://anitka.example/api/mobile/stores?lat=50.087&lng=14.421',
+      expect.any(Object),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `https://anitka.example/api/mobile/stores?chainId=${chainId}&page=2&lat=50.087&lng=14.421`,
+      expect.any(Object),
+    )
   })
 
   it('searches products, plans shopping, and pins a product using authenticated mobile routes', async () => {

@@ -317,6 +317,9 @@ jobs:
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             adb reverse tcp:3000 tcp:3000
+            adb shell pm grant cz.shoppingbuddy.mobile android.permission.ACCESS_COARSE_LOCATION
+            adb shell pm grant cz.shoppingbuddy.mobile android.permission.ACCESS_FINE_LOCATION
+            adb emu geo fix 14.4378 50.0755
             adb shell wm size 390x892
             adb shell wm density 160
 

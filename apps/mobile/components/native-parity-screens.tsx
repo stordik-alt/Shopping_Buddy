@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
-import { ArrowDown, ArrowRight, ArrowUp, Bell, ChevronDown, CookingPot, House, MapPin, MoreHorizontal, Package, Pencil, PiggyBank, Plus, Repeat, ReceiptText, Search, ShoppingBag, ShoppingCart, Sparkles, Star, Store, Tag, Trash2, TrendingUp, Users, WalletCards, X } from 'lucide-react-native'
+import { ArrowDown, ArrowRight, ArrowUp, Bell, ChevronDown, CookingPot, House, LocateFixed, MapPin, MoreHorizontal, Package, Pencil, PiggyBank, Plus, Repeat, ReceiptText, Search, ShoppingBag, ShoppingCart, Sparkles, Star, Store, Tag, Trash2, TrendingUp, Users, WalletCards, X } from 'lucide-react-native'
 import * as SecureStore from 'expo-secure-store'
+import * as Location from 'expo-location'
 import { useMobileTheme, type ThemePreference } from '../lib/theme'
 import { useNativeGuideTarget } from './native-guide-targets'
 import { addHouseholdChild, addHouseholdMember, createHouseholdInvitation, createMobileManualPurchase, deleteMobileAccount, deleteMobilePurchase, dismissNotification, dismissRestockSuggestion, getDashboardSummary, getDealsPage, getHouseholdAuditLog, getHouseholdInvitations, getMealPlan, getNotificationPreferences, getNotifications, getPantrySettings, getPurchaseHistory, getStoreBranches, getStoreChains, getStorePreferences, MobileApiError, recordMobilePurchaseExpenses, removeHouseholdChild, removeHouseholdMember, resetHouseholdData, revokeHouseholdInvitation, sendTestPushNotification, updateHouseholdMemberDiet, updateHouseholdPreferences, updateHouseholdProfile, updateMobilePurchaseItemExpenseSplits, updateNotificationPreference, updatePantrySettings, updateStorePreferences, type MobileAuditEntry, type MobileBranchPage, type MobileChainTile, type MobileDashboardSummary, type MobileDealCategory, type MobileDealsPage, type MobileDealSort, type MobileDietAvoid, type MobileDietKey, type MobileHouseholdChild, type MobileHouseholdInvitation, type MobileHouseholdMember, type MobileHouseholdPreferences, type MobileHouseholdProfileData, type MobileMemberDiet, type MobileMealPlan, type MobileNotification, type MobileNotificationPreference, type MobilePantrySettings, type MobilePantryStockLevel, type MobilePurchase, type MobileStoreSelection } from '../lib/shopping-list-api'
@@ -16,7 +17,7 @@ import { PRODUCT_TYPES } from '../../../lib/product-types'
 import { DOSE_TYPE_KEYS } from '../../../lib/units'
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { MAX_DISTANCE_KM, MAX_SHOP_STORES, normalizeDistanceKm, parseDistanceInput } from '../../../lib/nearby-stores'
-import { BRANCH_PAGE_SIZE } from '../../../lib/stores/branch-search'
+import { BRANCH_PAGE_SIZE, NEARBY_RADIUS_KM } from '../../../lib/stores/branch-search'
 import { chainFamily } from '../../../lib/stores/chain-family'
 import { disableDevicePush, enableDevicePush, readDevicePushState, type DevicePushState } from '../lib/push-notifications'
 import { expenseCategoryColor } from '../lib/chart-colors'
@@ -62,6 +63,16 @@ function NativeStoreMark({ chain }: { chain: string }) {
   const styles = useStyles()
   if (source) return <View style={styles.storeLogo}><Image accessibilityElementsHidden resizeMode="contain" source={source} style={styles.storeLogoImage} /></View>
   return <View accessibilityElementsHidden style={[styles.storeLogo, { backgroundColor: retailerFallbacks[family] ?? '#e8e8e4' }]}><Text style={styles.storeLogoText}>{family.slice(0, 3)}</Text></View>
+}
+
+function currentLocationWithTimeout(): Promise<Location.LocationObject> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('location_timeout')), 8_000)
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then(
+      (position) => { clearTimeout(timeout); resolve(position) },
+      (error: unknown) => { clearTimeout(timeout); reject(error) },
+    )
+  })
 }
 
 type NativeNavTargetRefs = Partial<Record<'home' | 'shopping' | 'pantry' | 'budget' | 'more', ReturnType<typeof useNativeGuideTarget>>>
@@ -384,6 +395,8 @@ export function NativeStoresScreen() {
   const styles = useStyles()
   const searchGuideTarget = useNativeGuideTarget('stores-search')
   const [city, setCity] = useState('')
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [locationState, setLocationState] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle')
   const [chains, setChains] = useState<MobileChainTile[]>([])
   const [selected, setSelected] = useState<MobileChainTile | null>(null)
   const [branches, setBranches] = useState<MobileBranchPage | null>(null)
@@ -391,30 +404,76 @@ export function NativeStoresScreen() {
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     let cancelled = false
+    if (!coords && !city.trim()) {
+      setChains([])
+      setSelected(null)
+      setBranches(null)
+      setLoading(false)
+      setError(null)
+      return () => { cancelled = true }
+    }
     setLoading(true)
     const timer = setTimeout(() => {
-      getStoreChains(city).then(({ chains: data }) => { if (!cancelled) { setChains(data); setSelected(null); setBranches(null) } }).catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : 'Obchody se nepodařilo načíst.') }).finally(() => { if (!cancelled) setLoading(false) })
-    }, 250)
+      getStoreChains(coords ?? city).then(({ chains: data }) => { if (!cancelled) { setChains(data); setSelected(null); setBranches(null) } }).catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : 'Obchody se nepodařilo načíst.') }).finally(() => { if (!cancelled) setLoading(false) })
+    }, coords ? 0 : 400)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [city])
+  }, [city, coords])
   async function openChain(chain: MobileChainTile) {
     setSelected(chain); setBranches(null); setLoading(true); setError(null)
-    try { setBranches(await getStoreBranches(city, chain.storeId)) } catch (caught) { setError(caught instanceof Error ? caught.message : 'Prodejny se nepodařilo načíst.') } finally { setLoading(false) }
+    try { setBranches(await getStoreBranches(coords ?? city, chain.storeId)) } catch (caught) { setError(caught instanceof Error ? caught.message : 'Prodejny se nepodařilo načíst.') } finally { setLoading(false) }
+  }
+  async function requestLocation() {
+    if (locationState === 'loading') return
+    setLocationState('loading')
+    setError(null)
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync()
+      if (!permission.granted) {
+        setLocationState('denied')
+        return
+      }
+      const position = await currentLocationWithTimeout()
+      setCoords({ lat: position.coords.latitude, lng: position.coords.longitude })
+      setLocationState('granted')
+    } catch {
+      setLocationState('denied')
+    }
+  }
+  function clearLocation() {
+    setCoords(null)
+    setLocationState('idle')
+    setCity('')
   }
   return <ScrollView contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled">
-    <Text style={styles.bodyText}>Najděte obchody a prodejny ve svém okolí.</Text>
-    <View style={styles.searchBox}><MapPin color={colors.mutedText} size={18} /><TextInput ref={searchGuideTarget} accessibilityLabel="Město nebo obec" onChangeText={setCity} placeholder="Město nebo obec" placeholderTextColor={colors.mutedText} style={styles.searchInput} value={city} /></View>
+    <View style={styles.storeIntro}><Text style={styles.storeDirectoryTitle}>Kde nakoupit</Text><Text style={styles.bodyText}>Vyberte lokalitu a řetězce, porovnejte otevírací dobu a akce.</Text></View>
+    {coords ? (
+      <View style={styles.locationNotice}>
+        <LocateFixed color={colors.accentText} size={18} />
+        <Text style={styles.locationNoticeText}>Prodejny do {NEARBY_RADIUS_KM} km od vaší polohy</Text>
+        <Pressable accessibilityRole="button" onPress={clearLocation}><Text style={styles.locationClearText}>Zadat ručně</Text></Pressable>
+      </View>
+    ) : (
+      <>
+        <View style={styles.searchBox}><MapPin color={colors.accentText} size={18} /><TextInput ref={searchGuideTarget} accessibilityLabel="Město nebo obec" maxLength={80} onChangeText={setCity} placeholder="Město, např. Brno" placeholderTextColor={colors.mutedText} style={styles.searchInput} value={city} /></View>
+        <Pressable accessibilityRole="button" disabled={locationState === 'loading'} onPress={() => void requestLocation()} style={[styles.locationButton, locationState === 'loading' && styles.disabled]}>
+          {locationState === 'loading' ? <ActivityIndicator color={colors.accentText} size="small" /> : <LocateFixed color={colors.accentText} size={18} />}
+          <Text style={styles.locationButtonText}>{locationState === 'loading' ? 'Zjišťuji polohu…' : 'Použít mou polohu'}</Text>
+        </Pressable>
+      </>
+    )}
+    {locationState === 'denied' ? <Text accessibilityLiveRegion="polite" style={styles.locationDenied}>Poloha nebyla povolena, obchody zobrazujeme podle zadané lokality. Vzdálenost se používá pouze pro hledání obchodů v okolí.</Text> : null}
     {selected ? <Pressable onPress={() => { setSelected(null); setBranches(null) }} style={styles.backButton}><Text style={styles.pageText}>‹  Všechny řetězce</Text></Pressable> : null}
     {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
     {loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null}
+    {!selected && !loading && !coords && !city.trim() ? <View style={styles.emptyCard}><Text style={styles.cardTitle}>Kde chcete nakupovat?</Text><Text style={styles.bodyText}>Zadejte město nebo použijte svou polohu a ukážeme řetězce, které tam mají prodejnu.</Text></View> : null}
     {!selected ? chains.map((chain) => <Pressable key={chain.storeId} onPress={() => void openChain(chain)} style={styles.storeCard}>
       <NativeStoreMark chain={chain.chain} /><View style={styles.dashboardText}><Text style={styles.cardTitle}>{chain.chain}</Text><Text style={styles.bodyText}>{chain.branchCount} prodejen · {chain.dealsCount} dnešních akcí</Text></View><ArrowRight color={colors.mutedText} size={19} />
     </Pressable>) : <>
       <Text style={styles.sectionHeading}>{selected.chain} · {branches?.total ?? 0} prodejen</Text>
-      {branches?.rows.map((branch) => <View key={branch.id} style={styles.branchCard}><NativeStoreMark chain={branch.chain} /><View style={styles.dashboardText}><Text style={styles.cardTitle}>{branch.name}</Text><Text style={styles.bodyText}>{branch.address}, {branch.city}</Text>{branch.hours ? <Text style={styles.noteText}>{branch.hours}</Text> : null}</View></View>)}
+      {branches?.rows.map((branch) => <View key={branch.id} style={styles.branchCard}><NativeStoreMark chain={branch.chain} /><View style={styles.dashboardText}><Text style={styles.cardTitle}>{branch.name}</Text><Text style={styles.bodyText}>{branch.address}, {branch.city}</Text>{branch.hours || branch.distanceKm != null ? <Text style={styles.noteText}>{[branch.hours, branch.distanceKm != null ? `${branch.distanceKm.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} km` : null].filter(Boolean).join(' · ')}</Text> : null}</View></View>)}
       {branches?.total === 0 ? <View style={styles.emptyCard}><Text style={styles.bodyText}>Pro tento řetězec zde nejsou evidované prodejny.</Text></View> : null}
     </>}
-    {!loading && !selected && chains.length === 0 ? <View style={styles.emptyCard}><Text style={styles.bodyText}>Pro toto místo se nepodařilo najít obchody.</Text></View> : null}
+    {!loading && !selected && (coords || city.trim()) && chains.length === 0 ? <View style={styles.emptyCard}><Text style={styles.bodyText}>Pro toto místo se nepodařilo najít obchody.</Text></View> : null}
   </ScrollView>
 }
 
@@ -1594,8 +1653,16 @@ function useStyles() {
   moreItem: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   moreItemIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.accentSubtle },
   moreItemText: { flex: 1, color: colors.foreground, fontSize: 15, fontWeight: '600' },
+  storeIntro: { gap: 3 },
+  storeDirectoryTitle: { color: colors.foreground, fontSize: 22, fontWeight: '700' },
   searchBox: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 13, backgroundColor: colors.card, borderColor: colors.inputBorder, borderWidth: 1, borderRadius: 15 },
   searchInput: { flex: 1, color: colors.foreground, fontSize: 14, minHeight: 44 },
+  locationButton: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 15, backgroundColor: colors.card, paddingHorizontal: 13 },
+  locationButtonText: { color: colors.accentText, fontSize: 14, fontWeight: '700' },
+  locationNotice: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 15, backgroundColor: colors.accentSubtle, paddingHorizontal: 13, paddingVertical: 8 },
+  locationNoticeText: { flex: 1, color: colors.accentText, fontSize: 13, fontWeight: '600' },
+  locationClearText: { color: colors.accentText, fontSize: 13, fontWeight: '700', textDecorationLine: 'underline' },
+  locationDenied: { color: colors.secondaryText, backgroundColor: colors.muted, borderRadius: 14, padding: 12, fontSize: 13, lineHeight: 19 },
   chipRow: { gap: 8, paddingVertical: 2 },
   chip: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 13, borderRadius: 18, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },

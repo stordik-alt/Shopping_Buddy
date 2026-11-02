@@ -260,6 +260,7 @@ export type MobileDealsPage = {
   hasPreferences: boolean
 }
 export type MobileChainTile = { storeId: string; chain: string; branchCount: number; dealsCount: number; isFavorite: boolean }
+export type MobileStoreLocality = string | { city?: string; lat?: number; lng?: number }
 export type MobileStoreSelection = {
   maxDistanceKm: number | null
   chainIds: string[]
@@ -485,15 +486,28 @@ export function getDealsPage(input: { category?: MobileDealCategory | 'all'; cha
   return request<MobileDealsPage>(`/api/mobile/deals?${params.toString()}`)
 }
 
-export function getStoreChains(city = '') {
+function appendStoreLocality(params: URLSearchParams, locality: MobileStoreLocality) {
+  if (typeof locality === 'string') {
+    if (locality.trim()) params.set('city', locality.trim())
+    return
+  }
+  if (typeof locality.lat === 'number' && typeof locality.lng === 'number' && Number.isFinite(locality.lat) && Number.isFinite(locality.lng)) {
+    params.set('lat', String(locality.lat))
+    params.set('lng', String(locality.lng))
+  } else if (locality.city?.trim()) {
+    params.set('city', locality.city.trim())
+  }
+}
+
+export function getStoreChains(locality: MobileStoreLocality = '') {
   const params = new URLSearchParams()
-  if (city.trim()) params.set('city', city.trim())
+  appendStoreLocality(params, locality)
   return request<{ chains: MobileChainTile[] }>(`/api/mobile/stores${params.size ? `?${params.toString()}` : ''}`)
 }
 
-export function getStoreBranches(city: string, chainId: string, page = 1) {
+export function getStoreBranches(locality: MobileStoreLocality, chainId: string, page = 1) {
   const params = new URLSearchParams({ chainId, page: String(page) })
-  if (city.trim()) params.set('city', city.trim())
+  appendStoreLocality(params, locality)
   return request<MobileBranchPage>(`/api/mobile/stores?${params.toString()}`)
 }
 

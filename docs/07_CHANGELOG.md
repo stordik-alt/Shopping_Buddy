@@ -33,10 +33,12 @@
 - Domovská obrazovka řadí rychlé akce hned po rozpočtu a nákupním seznamu a používá stejnou jednu kartu se čtyřmi ikonovými dlaždicemi jako PWA. Datum na Domů nově obsahuje rok a český měsíc se už nesprávně nekapitalizuje.
 - Domů a Rozpočet používají společný nativní budget hero s varováním od 80 %, denním zůstatkem, počtem dní a CTA pro nastavení limitu. CTA z Domů otevře plánování rozpočtu přímo.
 - Upozornění „Dnes je důležité“ jsou seskupená do jedné karty. Sekce Profilu a filtry receptů se zalamují, takže se na 390 px neztrácí poslední volby mimo vodorovný viewport.
+- Recepty doplňují rychlé filtry PWA. Klepnutí na „Rychlé“, „Večeře“, „Oběd“, „Polévky“, „Maso“, „Těstoviny“, „Dezerty“ nebo „Bezmasé“ nastaví dotaz a rovnou spustí hledání.
+- Obchody umí použít foreground polohu zařízení, hledat řetězce v okruhu 5 km, zobrazit vzdálenost prodejen a vrátit se k ručnímu zadání města. Mobilní API validuje souřadnice a GPS výsledky se záměrně necachují; bez lokality se zobrazí výchozí dotaz jako v PWA.
 - Zásoby doplňují filtr podkategorie a přepínač spotřebovaných položek.
 - CI recovery pro Maestro ověřuje skutečný `adb shell`, rozpozná `device offline`, `DeviceServerDiedException`, nedokončený `Launch app` i další ztrátu ADB transportu a po restartu ADB zkusí flow až třikrát. Selhání, které není infrastrukturní, ukončí hned.
 - Produkční audit už nepočítá Expo CLI mezi produkční závislosti. Auth závislosti byly aktualizovány na `@neondatabase/auth@0.7.0-beta` a `better-auth@1.7.7`; `pnpm audit --prod --audit-level=high` prochází.
-- Ověřeno: Expo a kořenový TypeScript, 57 cílených Vitest testů, produkční dependency audit a Android screenshot opravy zásob.
+- Ověřeno: Expo a kořenový TypeScript, 67 cílených Vitest testů a produkční dependency audit; Android screenshot běh nově ověřuje také načtení obchodů podle emulátorové polohy.
 
 ## 2026-10-25 — Vizuální kontrola Expo aplikace a interaktivní průvodce
 

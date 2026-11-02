@@ -84,6 +84,12 @@ appId: cz.shoppingbuddy.mobile
 - assertVisible: "Město nebo obec"
 - takeScreenshot:
     path: "${THEME}-stores"
+- tapOn: "Použít mou polohu"
+- extendedWaitUntil:
+    visible: "Prodejny do 5 km od vaší polohy"
+    timeout: 30000
+- takeScreenshot:
+    path: "${THEME}-stores-gps"
 - tapOn:
     id: guide-nav-more
 - tapOn: "Recepty"

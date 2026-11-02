@@ -1295,9 +1295,9 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   ] as const
   return <ScrollView contentContainerStyle={styles.screenContent} keyboardShouldPersistTaps="handled">
     <View style={styles.profileCard}><View style={styles.profileAvatar}><Text style={styles.profileInitials}>{name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</Text></View><Text style={styles.profileName}>{name}</Text><Text style={styles.bodyText}>{email}</Text><Pressable accessibilityRole="button" onPress={onOpenGuide} style={styles.profileSmallAction}><Text style={styles.profileSmallActionText}>Otevřít průvodce aplikací</Text></Pressable></View>
-    <ScrollView horizontal contentContainerStyle={styles.profileSections} showsHorizontalScrollIndicator={false}>
+    <View accessibilityRole="tablist" style={styles.profileSections}>
       {sections.map(([key, label]) => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: profileSection === key }} onPress={() => setProfileSection(key)} style={[styles.profileSectionButton, profileSection === key && styles.profileSectionButtonActive]}><Text style={[styles.profileSectionText, profileSection === key && styles.profileSectionTextActive]}>{label}</Text></Pressable>)}
-    </ScrollView>
+    </View>
 
     {profileSection === 'household' ? <>
       <View style={styles.preferenceCard}>
@@ -1678,7 +1678,7 @@ function useStyles() {
   disabled: { opacity: 0.45 },
   footerNote: { color: colors.mutedText, fontSize: 11, textAlign: 'center', marginTop: 8 },
   profileCard: { alignItems: 'center', gap: 6, padding: 24, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 20 },
-  profileSections: { gap: 8, paddingVertical: 2 },
+  profileSections: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 2 },
   profileSectionButton: { minHeight: 39, justifyContent: 'center', paddingHorizontal: 13, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   profileSectionButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   profileSectionText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },

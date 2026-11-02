@@ -4,6 +4,18 @@ set -euo pipefail
 label="$1"
 shift
 
+test_output_dir=""
+original_args=("$@")
+for index in "${!original_args[@]}"; do
+  if [[ "${original_args[$index]}" == "--test-output-dir" ]]; then
+    test_output_dir="${original_args[$((index + 1))]:-}"
+  fi
+done
+if [[ -n "$test_output_dir" && "$test_output_dir" != test-results/* ]]; then
+  echo "Refusing test output directory outside test-results: $test_output_dir" >&2
+  exit 2
+fi
+
 adb_state() {
   adb get-state 2>/dev/null || true
 }
@@ -48,9 +60,26 @@ for attempt in 1 2 3; do
     continue
   fi
 
+  attempt_args=("${original_args[@]}")
+  attempt_output_dir=""
+  if [[ -n "$test_output_dir" ]]; then
+    attempt_output_dir="${test_output_dir}.attempt-${attempt}"
+    rm -rf -- "$attempt_output_dir"
+    for index in "${!attempt_args[@]}"; do
+      if [[ "${attempt_args[$index]}" == "--test-output-dir" ]]; then
+        attempt_args[$((index + 1))]="$attempt_output_dir"
+      fi
+    done
+  fi
+
   output_file="$(mktemp)"
   started_at="$(date +%s)"
-  if "$@" 2>&1 | tee "$output_file"; then
+  if "${attempt_args[@]}" 2>&1 | tee "$output_file"; then
+    if [[ -n "$attempt_output_dir" ]]; then
+      rm -rf -- "$test_output_dir"
+      mkdir -p "$(dirname "$test_output_dir")"
+      mv "$attempt_output_dir" "$test_output_dir"
+    fi
     rm -f "$output_file"
     exit 0
   else

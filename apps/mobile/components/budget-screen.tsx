@@ -75,7 +75,9 @@ import type { PocketInput } from '../../../lib/pocket-input'
 import type { BudgetOutlook } from '../../../lib/types'
 import type { PeriodHistoryRow } from '../../../lib/budget-history'
 import type { PeriodConfig } from '../../../lib/budget-period'
-import type { PocketAmount } from '../../../lib/budget-closing'
+import { periodResult, type PocketAmount } from '../../../lib/budget-closing'
+import { forecastPeriod, pendingCommitments, type Advice } from '../../../lib/budget-forecast'
+import type { RecurringOccurrence } from '../../../lib/recurring-payments'
 import { spendingDonutSegments } from '../../../lib/budget-chart'
 
 const CATEGORY_ICONS: Record<ExpenseCategory, LucideIcon> = {
@@ -244,6 +246,19 @@ function ExpenseEditor({
 type PlanningEdit =
   | { kind: 'income'; income?: MobileBudgetIncome; recurringReceive?: boolean }
   | { kind: 'plannedExpense'; plannedExpense?: MobilePlannedExpense }
+
+function forecastAdviceText(advice: Advice, currency: string): string {
+  switch (advice.kind) {
+    case 'shortfall': return `Na konci období může chybět ${money(advice.amount, currency)}.`
+    case 'postpone-savings': return `Můžete odložit plánované úspory (${money(advice.amount, currency)}).`
+    case 'trim-expenses': return `Můžete ubrat z plánovaných výdajů (${money(advice.amount, currency)}).`
+    case 'use-pocket': return advice.isReserve
+      ? `Můžete použít finanční rezervu ${advice.pocketName} (${money(advice.amount, currency)}).`
+      : `Můžete použít Kapsu ${advice.pocketName} (${money(advice.amount, currency)}).`
+    case 'carry-deficit': return `${money(advice.amount, currency)} by přešlo jako záporný převod.`
+    case 'payment-risk': return `Na splatné platby nyní chybí ${money(advice.amount, currency)}.`
+  }
+}
 
 function PlanningEditor({
   editing,
@@ -437,6 +452,10 @@ function BudgetPlanEditor({
 
 function BudgetPlanningScreen({
   planning,
+  ledger,
+  spent,
+  recurringPayments,
+  recurringOccurrences,
   busy,
   onEdit,
   onEditBudget,
@@ -444,6 +463,10 @@ function BudgetPlanningScreen({
   onPay,
 }: {
   planning: MobileBudgetPlanning | null
+  ledger: MobileBudgetLedger | null
+  spent: number
+  recurringPayments: RecurringPayment[]
+  recurringOccurrences: RecurringOccurrence[]
   busy: boolean
   onEdit: (editing: PlanningEdit) => void
   onEditBudget: () => void
@@ -457,6 +480,18 @@ function BudgetPlanningScreen({
   const receivedIncome = planning.incomes.filter((income) => income.status === 'actual')
   const openExpenses = planning.plannedExpenses.filter((expense) => expense.status === 'planned')
   const paidExpenses = planning.plannedExpenses.filter((expense) => expense.status === 'paid')
+  const receivedTotal = receivedIncome.reduce((sum, income) => sum + income.amount, 0)
+  const plannedIncomeTotal = plannedIncome.reduce((sum, income) => sum + income.amount, 0)
+  const openExpenseTotal = openExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+  const actual = periodResult({ received: receivedTotal, expenses: spent, transfers: ledger?.transfers ?? 0 }, ledger?.carryIn ?? 0)
+  const forecast = ledger ? forecastPeriod({
+    actual,
+    expectedIncome: plannedIncomeTotal,
+    commitments: pendingCommitments(recurringPayments, recurringOccurrences, planning.period.start, planning.period.end),
+    plannedExpenses: openExpenseTotal,
+    plannedTransfers: ledger.plannedTransfersLeft,
+    pockets: ledger.pockets,
+  }) : null
   return <View style={styles.section}>
     <View style={styles.card}>
       <Text style={styles.cardEyebrow}>PLÁN A ÚSPORY</Text>
@@ -465,13 +500,32 @@ function BudgetPlanningScreen({
       <Pressable accessibilityRole="button" onPress={onEditBudget} style={styles.secondaryInlineAction}><Text style={styles.link}>Upravit rozpočet</Text></Pressable>
     </View>
 
+    {forecast ? <>
+      <View style={styles.forecastCard}>
+        <Text style={styles.cardEyebrow}>SKUTEČNĚ</Text>
+        <Text style={styles.sectionTitle}>Skutečný zůstatek {money(actual, planning.currency)}</Text>
+        <Text style={styles.supporting}>Přijaté příjmy {money(receivedTotal, planning.currency)} · zaplacené výdaje {money(spent, planning.currency)} · Kapsy {money(ledger?.transfers ?? 0, planning.currency)}</Text>
+      </View>
+      <View style={styles.forecastCard}>
+        <Text style={styles.sectionTitle}>Odhad konce období</Text>
+        <Text style={styles.supporting}>Počítá jen známé příjmy, platby a plánované výdaje. Běžné budoucí nákupy neodhaduje.</Text>
+        <View style={styles.forecastGrid}>
+          <View style={styles.forecastStat}><Text style={styles.supporting}>Predikovaný zůstatek</Text><Text style={[styles.value, forecast.predicted < 0 && styles.over]}>{money(forecast.predicted, planning.currency)}</Text></View>
+          <View style={styles.forecastStat}><Text style={styles.supporting}>Dostupné peníze</Text><Text style={[styles.value, forecast.available < 0 && styles.over]}>{money(forecast.available, planning.currency)}</Text></View>
+          <View style={styles.forecastStat}><Text style={styles.supporting}>Očekávané příjmy</Text><Text style={styles.value}>{money(forecast.expectedIncome, planning.currency)}</Text></View>
+          <View style={styles.forecastStat}><Text style={styles.supporting}>Rezervováno na platby</Text><Text style={styles.value}>{money(forecast.reserved, planning.currency)}</Text></View>
+        </View>
+        {forecast.advice.length ? <View style={styles.adviceList}>{forecast.advice.map((advice, index) => <Text key={`${advice.kind}-${index}`} style={styles.adviceText}>• {forecastAdviceText(advice, planning.currency)}</Text>)}<Text style={styles.note}>Jde jen o návrhy. ANITKA nic nepřesune bez potvrzení.</Text></View> : null}
+      </View>
+    </> : null}
+
     <BudgetPlanSection
       title="Příjmy"
-      summary={planning.incomes.length === 0 ? 'Zatím žádné' : `Přijato ${money(receivedIncome.reduce((sum, income) => sum + income.amount, 0), planning.currency)} · čeká ${money(plannedIncome.reduce((sum, income) => sum + income.amount, 0), planning.currency)}`}
+      summary={planning.incomes.length === 0 ? 'Zatím žádné' : `Přijato ${money(receivedTotal, planning.currency)} · čeká ${money(plannedIncomeTotal, planning.currency)}`}
     >
       <View style={styles.card}>
-        <View style={styles.planTotals}><Text style={styles.supporting}>Očekávané</Text><Text style={styles.value}>{money(plannedIncome.reduce((sum, income) => sum + income.amount, 0), planning.currency)}</Text></View>
-        <View style={styles.planTotals}><Text style={styles.supporting}>Přijaté</Text><Text style={styles.value}>{money(receivedIncome.reduce((sum, income) => sum + income.amount, 0), planning.currency)}</Text></View>
+        <View style={styles.planTotals}><Text style={styles.supporting}>Očekávané</Text><Text style={styles.value}>{money(plannedIncomeTotal, planning.currency)}</Text></View>
+        <View style={styles.planTotals}><Text style={styles.supporting}>Přijaté</Text><Text style={styles.value}>{money(receivedTotal, planning.currency)}</Text></View>
         <Pressable accessibilityRole="button" onPress={() => onEdit({ kind: 'income' })} style={styles.inlineAdd}><Text style={styles.link}>＋ Přidat příjem</Text></Pressable>
       </View>
       {planning.incomes.length === 0 ? <View style={styles.emptyCard}><Text style={styles.supporting}>Pro toto období zatím nejsou naplánované příjmy.</Text></View> : planning.incomes.map((income) => {
@@ -490,10 +544,10 @@ function BudgetPlanningScreen({
 
     <BudgetPlanSection
       title="Plánované výdaje"
-      summary={planning.plannedExpenses.length === 0 ? 'Zatím žádné' : `Čeká ${money(openExpenses.reduce((sum, expense) => sum + expense.amount, 0), planning.currency)}${paidExpenses.length ? ` · zaplaceno ${paidExpenses.length}` : ''}`}
+      summary={planning.plannedExpenses.length === 0 ? 'Zatím žádné' : `Čeká ${money(openExpenseTotal, planning.currency)}${paidExpenses.length ? ` · zaplaceno ${paidExpenses.length}` : ''}`}
     >
       <View style={styles.card}>
-        <View style={styles.planTotals}><Text style={styles.supporting}>Čeká na zaplacení</Text><Text style={styles.value}>{money(openExpenses.reduce((sum, expense) => sum + expense.amount, 0), planning.currency)}</Text></View>
+        <View style={styles.planTotals}><Text style={styles.supporting}>Čeká na zaplacení</Text><Text style={styles.value}>{money(openExpenseTotal, planning.currency)}</Text></View>
         <Pressable accessibilityRole="button" onPress={() => onEdit({ kind: 'plannedExpense' })} style={styles.inlineAdd}><Text style={styles.link}>＋ Přidat plánovaný výdaj</Text></Pressable>
       </View>
       {planning.plannedExpenses.length === 0 ? <View style={styles.emptyCard}><Text style={styles.supporting}>Pro toto období zatím nejsou plánované výdaje.</Text></View> : planning.plannedExpenses.map((expense) => (
@@ -895,11 +949,15 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, budgetPl
           </View>
         ) : view === 'planning' ? <View style={styles.section}><BudgetPlanningScreen
           busy={saving}
+          ledger={ledger}
           onEdit={setEditingPlan}
           onEditBudget={() => setBudgetEditorOpen(true)}
           onPay={(expense) => { Alert.alert('Označit jako zaplacené?', `${expense.note || expense.category} · ${money(expense.amount, planning?.currency ?? 'CZK')}`, [{ text: 'Zrušit', style: 'cancel' }, { text: 'Zaplaceno', onPress: () => void mutatePlanning(() => payPlannedExpense(expense.id)) }]) }}
           onReceive={(income) => { Alert.alert('Potvrdit přijatý příjem?', `${income.description} · ${money(income.amount, planning?.currency ?? 'CZK')}`, [{ text: 'Zrušit', style: 'cancel' }, { text: 'Přijato', onPress: () => void mutatePlanning(() => receiveBudgetIncome(income.id)) }]) }}
           planning={planning}
+          recurringOccurrences={recurring?.occurrences ?? []}
+          recurringPayments={recurring?.payments ?? []}
+          spent={summary?.spent ?? 0}
         />
         <BudgetPlanSection
           title="Pravidelné příjmy"
@@ -1013,6 +1071,11 @@ function useStyles() {
   planSectionBody: { gap: 8, paddingHorizontal: 12, paddingBottom: 12 },
   planSectionBodyHidden: { display: 'none' },
   planSectionChevronOpen: { transform: [{ rotate: '180deg' }] },
+  forecastCard: { gap: 8, borderColor: colors.border, borderWidth: 1, borderRadius: 16, backgroundColor: colors.card, padding: 14 },
+  forecastGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  forecastStat: { flexGrow: 1, flexBasis: '46%', minWidth: 0, gap: 2, borderRadius: 12, backgroundColor: colors.muted, padding: 10 },
+  adviceList: { gap: 4, borderRadius: 12, backgroundColor: colors.muted, padding: 11 },
+  adviceText: { color: colors.secondaryText, fontSize: 12, lineHeight: 18 },
   title: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
   supporting: { color: colors.secondaryText, fontSize: 13, lineHeight: 19, marginTop: 4 },
   card: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, padding: 16, gap: 12 },

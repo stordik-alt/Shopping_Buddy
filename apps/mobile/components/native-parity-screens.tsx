@@ -75,6 +75,16 @@ function currentLocationWithTimeout(): Promise<Location.LocationObject> {
   })
 }
 
+async function currentOrLastKnownLocation(): Promise<Location.LocationObject> {
+  try {
+    return await currentLocationWithTimeout()
+  } catch {
+    const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 5 * 60_000, requiredAccuracy: 5_000 })
+    if (!lastKnown) throw new Error('location_unavailable')
+    return lastKnown
+  }
+}
+
 type NativeNavTargetRefs = Partial<Record<'home' | 'shopping' | 'pantry' | 'budget' | 'more', ReturnType<typeof useNativeGuideTarget>>>
 
 export function NativeBottomNav({ active, onSelect, guideTargetRefs }: { active: NativeTab; onSelect: (tab: NativeTab) => void; guideTargetRefs?: NativeNavTargetRefs }) {
@@ -432,7 +442,7 @@ export function NativeStoresScreen() {
         setLocationState('denied')
         return
       }
-      const position = await currentLocationWithTimeout()
+      const position = await currentOrLastKnownLocation()
       setCoords({ lat: position.coords.latitude, lng: position.coords.longitude })
       setLocationState('granted')
     } catch {

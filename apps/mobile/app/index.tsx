@@ -355,6 +355,7 @@ export default function HomeScreen() {
   const [shoppingToolsTarget, setShoppingToolsTarget] = useState<{ itemId: string; name: string } | null>(null)
   const [undoRemoval, setUndoRemoval] = useState<MobileShoppingItem | null>(null)
   const undoRemovalTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const deferredRemoveItemId = useRef<string | null>(null)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const [quickExpenseToken, setQuickExpenseToken] = useState(0)
   const [budgetPlanningToken, setBudgetPlanningToken] = useState(0)
@@ -528,7 +529,7 @@ export default function HomeScreen() {
 
   function showSnapshot(snapshot: OfflineShoppingSnapshot) {
     offlineSnapshot.current = snapshot
-    setPendingChanges(snapshot.pending.length)
+    setPendingChanges(snapshot.pending.filter((operation) => operation.kind !== 'remove' || operation.itemId !== deferredRemoveItemId.current).length)
     setItems(applyOfflineOperations(snapshot.list.items, snapshot.pending))
     const options = snapshot.list.lists ?? []
     setShoppingLists(options)
@@ -540,12 +541,22 @@ export default function HomeScreen() {
     const current = offlineSnapshot.current
     if (!current || current.pending.length === 0) return
 
+    const deferred = deferredRemoveItemId.current
+      ? current.pending.filter((operation) => operation.kind === 'remove' && operation.itemId === deferredRemoveItemId.current)
+      : []
+    const pending = current.pending.filter((operation) => !deferred.includes(operation))
+    if (pending.length === 0) return
+    const snapshotToSync = { ...current, pending }
+    const persistWithDeferred = async (snapshot: OfflineShoppingSnapshot) => {
+      await saveOfflineSnapshot({ ...snapshot, pending: [...snapshot.pending, ...deferred] })
+    }
     const result = await syncOfflineOperations(
-      current,
+      snapshotToSync,
       { add: addShoppingItem, toggle: toggleShoppingItem, update: updateShoppingItem, remove: removeShoppingItem },
-      saveOfflineSnapshot,
+      persistWithDeferred,
     )
-    showSnapshot(result.snapshot)
+    const finalSnapshot = { ...result.snapshot, pending: [...result.snapshot.pending, ...deferred] }
+    showSnapshot(finalSnapshot)
     setOffline(result.retryRequired)
     if (result.error instanceof MobileApiError && result.error.status === 401) {
       setSignedIn(false)
@@ -940,18 +951,30 @@ export default function HomeScreen() {
         setBusyItemId(item.id)
         setError(null)
         try {
+          if (deferredRemoveItemId.current && deferredRemoveItemId.current !== item.id) {
+            if (undoRemovalTimer.current) clearTimeout(undoRemovalTimer.current)
+            undoRemovalTimer.current = null
+            deferredRemoveItemId.current = null
+            setUndoRemoval(null)
+            await syncPendingChanges(true)
+          }
           const current = offlineSnapshot.current
           if (!current) throw new Error('Seznam není připravený. Zkuste ho obnovit.')
+          deferredRemoveItemId.current = item.id
           const updated = {
             ...current,
             pending: enqueueOfflineOperation(current.pending, { kind: 'remove', itemId: item.id }),
           }
           await saveOfflineSnapshot(updated)
           showSnapshot(updated)
-          await syncPendingChanges(true)
           if (undoRemovalTimer.current) clearTimeout(undoRemovalTimer.current)
           setUndoRemoval(item)
-          undoRemovalTimer.current = setTimeout(() => setUndoRemoval(null), 7000)
+          undoRemovalTimer.current = setTimeout(() => {
+            undoRemovalTimer.current = null
+            deferredRemoveItemId.current = null
+            setUndoRemoval(null)
+            void syncPendingChanges(true)
+          }, 7000)
         } catch (caught) {
           setError(errorMessage(caught))
         } finally {
@@ -961,44 +984,28 @@ export default function HomeScreen() {
     ])
   }
 
-  function dismissUndoRemoval() {
+  function finishUndoRemoval() {
     if (undoRemovalTimer.current) clearTimeout(undoRemovalTimer.current)
     undoRemovalTimer.current = null
+    deferredRemoveItemId.current = null
     setUndoRemoval(null)
+    void syncPendingChanges(true)
   }
 
-  async function restoreRemovedItem() {
-    const item = undoRemoval
+  async function undoRemovedItem() {
     const current = offlineSnapshot.current
-    if (!item || !current || busyItemId) return
-    setBusyItemId('undo-removal')
-    setError(null)
+    if (!current || !deferredRemoveItemId.current) return
+    if (undoRemovalTimer.current) clearTimeout(undoRemovalTimer.current)
+    undoRemovalTimer.current = null
+    const itemId = deferredRemoveItemId.current
+    deferredRemoveItemId.current = null
+    setUndoRemoval(null)
     try {
-      const created = await addShoppingItem(item.name, createOfflineItemId().slice('offline-'.length), item.quantity, item.unit, {
-        ...(item.category ? { category: item.category } : {}),
-        ...(item.detail ? { detail: item.detail } : {}),
-        ...(item.productId ? { selection: { kind: 'product' as const, productId: item.productId } } : {}),
-        listId: current.list.listId,
-      })
-      if (item.priority || item.note || item.store || item.productTypes) {
-        await updateShoppingItem(created.item.id, {
-          ...(item.priority ? { priority: item.priority } : {}),
-          ...(item.note ? { note: item.note } : {}),
-          ...(item.store !== undefined ? { store: item.store } : {}),
-          ...(item.productTypes ? { productTypes: item.productTypes } : {}),
-        })
-      }
-      if (item.done) await toggleShoppingItem(created.item.id, true)
-      const fresh = await getShoppingList(current.list.listId)
-      const next = { ...current, list: fresh, pending: [] }
+      const next = { ...current, pending: current.pending.filter((operation) => !(operation.kind === 'remove' && operation.itemId === itemId)) }
       await saveOfflineSnapshot(next)
       showSnapshot(next)
-      dismissUndoRemoval()
     } catch (caught) {
       setError(errorMessage(caught))
-      if (caught instanceof MobileApiError && caught.status === 401) handleAuthExpired()
-    } finally {
-      setBusyItemId(null)
     }
   }
 
@@ -1546,10 +1553,10 @@ export default function HomeScreen() {
         )}
         {householdAvailable && activeTab === 'shopping' && shoppingView === 'list' && undoRemoval ? <View style={styles.undoRemovalBar}>
           <Text numberOfLines={1} style={styles.undoRemovalText}>Odstraněno: {undoRemoval.name}</Text>
-          <Pressable accessibilityRole="button" disabled={busyItemId === 'undo-removal'} onPress={() => void restoreRemovedItem()} style={[styles.undoRemovalButton, busyItemId === 'undo-removal' && styles.disabledButton]}><Text style={styles.undoRemovalButtonText}>{busyItemId === 'undo-removal' ? 'Vracím…' : 'Vrátit zpět'}</Text></Pressable>
-          <Pressable accessibilityLabel="Zavřít oznámení o odstranění" accessibilityRole="button" onPress={dismissUndoRemoval} style={styles.undoRemovalClose}><X color={colors.mutedText} size={17} /></Pressable>
+          <Pressable accessibilityRole="button" onPress={() => void undoRemovedItem()} style={styles.undoRemovalButton}><Text style={styles.undoRemovalButtonText}>Vrátit zpět</Text></Pressable>
+          <Pressable accessibilityLabel="Dokončit odstranění" accessibilityRole="button" onPress={finishUndoRemoval} style={styles.undoRemovalClose}><X color={colors.mutedText} size={17} /></Pressable>
         </View> : null}
-        {householdAvailable && activeTab === 'shopping' && shoppingView === 'list' && completed > 0 ? <View style={styles.completeShoppingBar}>
+        {householdAvailable && activeTab === 'shopping' && shoppingView === 'list' && completed > 0 && !undoRemoval ? <View style={styles.completeShoppingBar}>
           <Pressable
             ref={shoppingFinishGuideTarget}
             accessibilityRole="button"

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { CookingPot } from 'lucide-react-native'
 import { MobileApiError, getPantry, getRecipe, getRecipeCollections, getRecipePricing, getRecipeRecommendations, searchRecipes, toggleRecipeFavorite, type MobileRecipe, type MobileRecipeCollection } from '../lib/shopping-list-api'
 import { getAccessToken } from '../lib/auth'
 import { RefreshButton } from './refresh-button'
@@ -68,6 +69,7 @@ export function RecipesScreen({ onAuthExpired, onAddToShopping }: { onAuthExpire
   const [householdFilter, setHouseholdFilter] = useState(false)
   const [collections, setCollections] = useState<MobileRecipeCollection | null>(null)
   const [recommendations, setRecommendations] = useState<Awaited<ReturnType<typeof getRecipeRecommendations>> | null>(null)
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false)
   const [selectedServings, setSelectedServings] = useState(1)
   const [favoriteSaving, setFavoriteSaving] = useState(false)
   const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set())
@@ -145,6 +147,18 @@ export function RecipesScreen({ onAuthExpired, onAddToShopping }: { onAuthExpire
       setError(caught instanceof Error ? caught.message : 'Recepty se nepodařilo načíst.')
       if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
     } finally { setLoading(false) }
+  }
+
+  async function loadInlineRecommendations() {
+    if (recommendationsLoading) return
+    setRecommendationsLoading(true)
+    setError(null)
+    try {
+      setRecommendations(await getRecipeRecommendations())
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Doporučení podle zásob se nepodařilo načíst.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally { setRecommendationsLoading(false) }
   }
 
   async function changeFavorite() {
@@ -243,7 +257,7 @@ export function RecipesScreen({ onAuthExpired, onAddToShopping }: { onAuthExpire
             </View>
             <RefreshButton disabled={results.length === 0} loading={loading} onPress={() => void search(page)} />
           </View>
-          <View accessibilityRole="tablist" style={styles.modeRow}>{([['search', 'Hledat'], ['favorites', 'Oblíbené'], ['history', 'Nedávné'], ['recommendations', 'Podle zásob']] as [RecipeMode, string][]).map(([value, label]) => <Pressable ref={value === 'recommendations' ? recommendationsGuideTarget : undefined} key={value} accessibilityRole="tab" accessibilityState={{ selected: mode === value }} onPress={() => void openMode(value)} style={[styles.modeChip, mode === value && styles.modeChipActive]}><Text style={[styles.modeText, mode === value && styles.modeTextActive]}>{label}</Text></Pressable>)}</View>
+          <View accessibilityRole="tablist" style={styles.modeRow}>{([['search', 'Hledat'], ['favorites', 'Oblíbené'], ['history', 'Nedávné'], ['recommendations', 'Podle zásob']] as [RecipeMode, string][]).map(([value, label]) => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: mode === value }} onPress={() => void openMode(value)} style={[styles.modeChip, mode === value && styles.modeChipActive]}><Text style={[styles.modeText, mode === value && styles.modeTextActive]}>{label}</Text></Pressable>)}</View>
           {mode === 'search' ? <>
           <View style={styles.searchRow}>
             <TextInput
@@ -276,6 +290,30 @@ export function RecipesScreen({ onAuthExpired, onAddToShopping }: { onAuthExpire
               </Pressable>
             ))}
           </View>
+          <View style={styles.recommendationCta}>
+            <View style={styles.recommendationCtaIcon}><CookingPot color={colors.accentText} size={22} /></View>
+            <View style={styles.recommendationCtaText}>
+              <Text style={styles.recommendationCtaTitle}>Co uvařit z toho, co mám doma?</Text>
+              <Text style={styles.supporting}>Návrhy podle aktuálních zásob, alergií a toho, co domácnost nechce.</Text>
+            </View>
+            <Pressable
+              ref={recommendationsGuideTarget}
+              accessibilityRole="button"
+              disabled={recommendationsLoading}
+              onPress={() => void loadInlineRecommendations()}
+              style={[styles.recommendationCtaButton, recommendationsLoading && styles.disabledButton]}
+            >
+              {recommendationsLoading ? <ActivityIndicator color={colors.primaryForeground} size="small" /> : <CookingPot color={colors.primaryForeground} size={17} />}
+              <Text style={styles.recommendationCtaButtonText}>{recommendationsLoading ? 'Hledám podle zásob…' : 'Navrhnout recepty'}</Text>
+            </Pressable>
+          </View>
+          {recommendations ? <View style={styles.recommendationResults}>
+            <View style={styles.recommendationResultsHeading}>
+              <Text style={styles.sectionTitle}>Z toho, co máte doma</Text>
+              <Pressable accessibilityRole="button" onPress={() => setRecommendations(null)}><Text style={styles.recommendationHide}>Skrýt</Text></Pressable>
+            </View>
+            {recommendations.recipes.length ? recommendations.recipes.map((recipe) => <Pressable key={recipe.id} accessibilityRole="button" onPress={() => void openRecipe(recipe.id)} style={styles.recipeCard}><RecipePhoto title={recipe.title} token={imageToken} uri={recipe.imageUrl} /><View style={styles.cardText}><Text style={styles.cardTitle}>{recipe.title}</Text><Text style={styles.source}>{recipe.sourceName}</Text><Text style={styles.supporting}>Máte {recipe.coveredIngredientCount} z {recipe.ingredientCount} surovin doma · chybí {recipe.missingIngredientCount}</Text></View></Pressable>) : <View style={styles.emptyCard}><Text style={styles.sectionTitle}>Zásoby zatím recept nedoporučují</Text><Text style={styles.supporting}>Přidejte nebo roztřiďte potraviny v zásobách a zkuste to znovu.</Text></View>}
+          </View> : null}
           <View style={styles.modeRow}>
             {[[null, 'Všechny zdroje'] as const, ...RECIPE_SOURCE_OPTIONS.map((source) => [source.id, source.name] as const)].map(([id, label]) => <Pressable key={id ?? 'all'} accessibilityRole="button" accessibilityState={{ selected: sourceId === id }} onPress={() => setSourceId(id)} style={[styles.modeChip, sourceId === id && styles.modeChipActive]}><Text style={[styles.modeText, sourceId === id && styles.modeTextActive]}>{label}</Text></Pressable>)}
           </View>
@@ -356,6 +394,15 @@ function useStyles() {
   quickFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   quickFilterChip: { minHeight: 40, justifyContent: 'center', borderRadius: 20, backgroundColor: colors.muted, paddingHorizontal: 14 },
   quickFilterText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
+  recommendationCta: { gap: 10, borderRadius: 18, backgroundColor: colors.accentSubtle, padding: 14 },
+  recommendationCtaIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: colors.card },
+  recommendationCtaText: { gap: 2 },
+  recommendationCtaTitle: { color: colors.foreground, fontSize: 16, fontWeight: '700' },
+  recommendationCtaButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 14 },
+  recommendationCtaButtonText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '700' },
+  recommendationResults: { gap: 9, borderTopColor: colors.border, borderTopWidth: 1, paddingTop: 12 },
+  recommendationResultsHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  recommendationHide: { color: colors.accentText, fontSize: 13, fontWeight: '700' },
   secondaryButton: { minHeight: 44, justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card, paddingHorizontal: 12 },
   secondaryButtonText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   disabledButton: { opacity: 0.5 },

@@ -198,7 +198,12 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
         <Text style={styles.bodyText}>Tady je přehled vaší domácnosti.</Text>
       </View>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-      {attention.map((item) => <Pressable key={item.id} accessibilityRole="button" onPress={() => item.kind === 'receipt' ? onOpenReceipts(item.focus?.kind === 'receipt' ? item.focus.id : undefined) : onSelect('shopping')} style={styles.attentionCard}><Bell color={colors.warning} size={20} /><Text style={styles.attentionText}>{item.text}</Text><ArrowRight color={colors.mutedText} size={18} /></Pressable>)}
+      {attention.length > 0 ? (
+        <View accessibilityLabel="Dnes je důležité" style={styles.attentionGroup}>
+          <Text style={styles.attentionHeading}>Dnes je důležité</Text>
+          {attention.map((item) => <Pressable key={item.id} accessibilityRole="button" onPress={() => item.kind === 'receipt' ? onOpenReceipts(item.focus?.kind === 'receipt' ? item.focus.id : undefined) : onSelect('shopping')} style={styles.attentionCard}><Bell color={colors.accentText} size={18} /><Text style={styles.attentionText}>{item.text}</Text><ArrowRight color={colors.mutedText} size={18} /></Pressable>)}
+        </View>
+      ) : null}
       {loading ? <ActivityIndicator color={colors.primary} size="large" style={styles.loader} /> : null}
       {budget ? (
         <NativeBudgetHero
@@ -1530,7 +1535,9 @@ function useStyles() {
   bodyText: { color: colors.secondaryText, fontSize: 13, lineHeight: 19 },
   loader: { marginVertical: 18 },
   dashboardCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 15 },
-  attentionCard: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 13, borderWidth: 1, borderColor: colors.warning, borderRadius: 15, backgroundColor: colors.card },
+  attentionGroup: { gap: 2, padding: 6, borderRadius: 18, backgroundColor: colors.accentSubtle },
+  attentionHeading: { paddingHorizontal: 9, paddingTop: 6, paddingBottom: 4, color: colors.accentText, fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
+  attentionCard: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
   attentionText: { flex: 1, color: colors.foreground, fontSize: 13, fontWeight: '600' },
   insightCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, backgroundColor: colors.accentSubtle, borderColor: colors.border, borderWidth: 1 },
   recommendations: { gap: 12 },

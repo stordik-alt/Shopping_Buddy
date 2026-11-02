@@ -241,7 +241,7 @@ export function RecipesScreen({ onAuthExpired, onAddToShopping }: { onAuthExpire
             </View>
             <RefreshButton disabled={results.length === 0} loading={loading} onPress={() => void search(page)} />
           </View>
-          <ScrollView horizontal contentContainerStyle={styles.modeRow} showsHorizontalScrollIndicator={false}>{([['search', 'Hledat'], ['favorites', 'Oblíbené'], ['history', 'Nedávné'], ['recommendations', 'Podle zásob']] as [RecipeMode, string][]).map(([value, label]) => <Pressable ref={value === 'recommendations' ? recommendationsGuideTarget : undefined} key={value} accessibilityRole="tab" accessibilityState={{ selected: mode === value }} onPress={() => void openMode(value)} style={[styles.modeChip, mode === value && styles.modeChipActive]}><Text style={[styles.modeText, mode === value && styles.modeTextActive]}>{label}</Text></Pressable>)}</ScrollView>
+          <View accessibilityRole="tablist" style={styles.modeRow}>{([['search', 'Hledat'], ['favorites', 'Oblíbené'], ['history', 'Nedávné'], ['recommendations', 'Podle zásob']] as [RecipeMode, string][]).map(([value, label]) => <Pressable ref={value === 'recommendations' ? recommendationsGuideTarget : undefined} key={value} accessibilityRole="tab" accessibilityState={{ selected: mode === value }} onPress={() => void openMode(value)} style={[styles.modeChip, mode === value && styles.modeChipActive]}><Text style={[styles.modeText, mode === value && styles.modeTextActive]}>{label}</Text></Pressable>)}</View>
           {mode === 'search' ? <>
           <View style={styles.searchRow}>
             <TextInput
@@ -259,9 +259,9 @@ export function RecipesScreen({ onAuthExpired, onAddToShopping }: { onAuthExpire
               <Text style={styles.searchButtonText}>Hledat</Text>
             </Pressable>
           </View>
-          <ScrollView horizontal contentContainerStyle={styles.modeRow} showsHorizontalScrollIndicator={false}>
+          <View style={styles.modeRow}>
             {[[null, 'Všechny zdroje'] as const, ...RECIPE_SOURCE_OPTIONS.map((source) => [source.id, source.name] as const)].map(([id, label]) => <Pressable key={id ?? 'all'} accessibilityRole="button" accessibilityState={{ selected: sourceId === id }} onPress={() => setSourceId(id)} style={[styles.modeChip, sourceId === id && styles.modeChipActive]}><Text style={[styles.modeText, sourceId === id && styles.modeTextActive]}>{label}</Text></Pressable>)}
-          </ScrollView>
+          </View>
           <View style={styles.filtersRow}>{([['relevance', 'Doporučené'], ['rating', 'Hodnocení'], ['time', 'Čas']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: sort === value }} onPress={() => setSort(value)} style={[styles.filterChip, sort === value && styles.modeChipActive]}><Text style={[styles.modeText, sort === value && styles.modeTextActive]}>{label}</Text></Pressable>)}<Pressable accessibilityRole="checkbox" accessibilityState={{ checked: householdFilter }} onPress={() => setHouseholdFilter((value) => !value)} style={styles.filterChip}><Text style={styles.modeText}>{householdFilter ? '☑' : '☐'} Strava domácnosti</Text></Pressable></View>
           </> : null}
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -358,7 +358,7 @@ function useStyles() {
   backText: { color: colors.accentText, fontSize: 15, fontWeight: '600' },
   description: { color: colors.secondaryText, fontSize: 15, lineHeight: 22 },
   ingredient: { color: colors.foreground, fontSize: 15, lineHeight: 22 },
-  modeRow: { gap: 7, paddingVertical: 2, paddingRight: 10 },
+  modeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingVertical: 2 },
   modeChip: { minHeight: 38, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 20, paddingHorizontal: 12 },
   modeChipActive: { backgroundColor: colors.accentSubtle, borderColor: colors.primary },
   modeText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },

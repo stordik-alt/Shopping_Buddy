@@ -844,6 +844,13 @@ export function setMealServings(day: string, mealType: MobileMealType, servings:
   })
 }
 
+export function regenerateMealPlan(day: string, mealType: MobileMealType, useStock: boolean) {
+  return request<{ plan: MobileMealPlan }>('/api/mobile/meal-plan/regenerate', {
+    method: 'POST',
+    body: JSON.stringify({ day, mealType, useStock }),
+  })
+}
+
 export function markMealCooked(day: string, mealType: MobileMealType) {
   return request<{ plan: MobileMealPlan | null; changed: boolean }>('/api/mobile/meal-plan/cooked', {
     method: 'POST',

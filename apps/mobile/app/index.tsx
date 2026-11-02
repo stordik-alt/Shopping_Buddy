@@ -81,6 +81,7 @@ import {
   type MobileShoppingItem,
   type MobileShoppingList,
   type MobileDashboardSummary,
+  type MobileMealType,
   type MobilePantryItem,
   type MobileHouseholdProfileData,
 } from '../lib/shopping-list-api'
@@ -343,6 +344,8 @@ export default function HomeScreen() {
   const [dealsInitialChain, setDealsInitialChain] = useState<string | null>(null)
   const [pantryReviewToken, setPantryReviewToken] = useState(0)
   const [focusedTarget, setFocusedTarget] = useState<FocusedNativeTarget | null>(null)
+  const [focusedShoppingItemName, setFocusedShoppingItemName] = useState<string | null>(null)
+  const [focusedMeal, setFocusedMeal] = useState<{ day: string; mealType: MobileMealType } | null>(null)
   const [signedIn, setSignedIn] = useState(false)
   const [busy, setBusy] = useState(true)
   const [signingIn, setSigningIn] = useState(false)
@@ -996,6 +999,14 @@ export default function HomeScreen() {
     setEditNote(item.note ?? '')
   }
 
+  useEffect(() => {
+    if (!focusedShoppingItemName || activeTab !== 'shopping' || shoppingView !== 'list' || items.length === 0) return
+    const wanted = focusedShoppingItemName.trim().toLocaleLowerCase('cs-CZ')
+    const target = items.find((item) => item.name.trim().toLocaleLowerCase('cs-CZ') === wanted)
+    if (target) openEdit(target)
+    setFocusedShoppingItemName(null)
+  }, [activeTab, focusedShoppingItemName, items, shoppingView])
+
   async function saveEdit() {
     if (!editItem || busy || busyItemId) return
     const quantity = Number(editQuantity.trim().replace(',', '.'))
@@ -1139,6 +1150,9 @@ export default function HomeScreen() {
                 name={userName}
                 onAddToShopping={(name, quantity = 1, unit = 'ks') => { setActiveTab('shopping'); setShoppingView('list'); void handleAdd(name, quantity, unit) }}
                 onOpenReceipts={(receiptId) => { setShoppingView('receipts'); setActiveTab('shopping'); setFocusedTarget(receiptId ? { kind: 'receipt', id: receiptId } : null) }}
+                onOpenShoppingItem={(name) => { setShoppingView('list'); setActiveTab('shopping'); setFocusedShoppingItemName(name ?? null) }}
+                onOpenMealPlan={() => { setFocusedMeal(null); setRecipeView('meals'); setActiveTab('recipes') }}
+                onOpenMeal={(day, mealType) => { setRecipeView('meals'); setActiveTab('recipes'); setFocusedMeal({ day, mealType }) }}
                 onQuickExpense={() => { setQuickExpenseToken((current) => current + 1); setActiveTab('budget') }}
                 onOpenBudgetPlan={() => { setBudgetPlanningToken((current) => current + 1); setActiveTab('budget') }}
                 onCheckPantry={() => { setActiveTab('pantry'); setPantryReviewToken((current) => current + 1) }}
@@ -1419,7 +1433,7 @@ export default function HomeScreen() {
                   <Pressable accessibilityRole="tab" accessibilityState={{ selected: recipeView === 'recipes' }} onPress={() => setRecipeView('recipes')} style={[styles.sectionTab, recipeView === 'recipes' && styles.sectionTabActive]}><Text style={[styles.sectionTabText, recipeView === 'recipes' && styles.sectionTabTextActive]}>Recepty</Text></Pressable>
                   <Pressable accessibilityRole="tab" accessibilityState={{ selected: recipeView === 'meals' }} onPress={() => setRecipeView('meals')} style={[styles.sectionTab, recipeView === 'meals' && styles.sectionTabActive]}><Text style={[styles.sectionTabText, recipeView === 'meals' && styles.sectionTabTextActive]}>Jídelníček</Text></Pressable>
                 </View>
-                {recipeView === 'meals' ? <MealPlanScreen onAuthExpired={handleAuthExpired} /> : <RecipesScreen onAuthExpired={handleAuthExpired} onAddToShopping={(added) => {
+                {recipeView === 'meals' ? <MealPlanScreen focusedMeal={focusedMeal} onFocusHandled={() => setFocusedMeal(null)} onAuthExpired={handleAuthExpired} /> : <RecipesScreen onAuthExpired={handleAuthExpired} onAddToShopping={(added) => {
                   const current = offlineSnapshot.current
                   if (!current || added.length === 0) return
                   setActiveTab('shopping')
@@ -1453,7 +1467,12 @@ export default function HomeScreen() {
           </Pressable>
         </View> : null}
         </View>
-        {householdAvailable ? <NativeBottomNav active={activeTab} onSelect={(tab) => { if (tab === 'deals') setDealsInitialChain(null); setActiveTab(tab) }} guideTargetRefs={{ home: homeNavGuideTarget, shopping: shoppingNavGuideTarget, pantry: pantryNavGuideTarget, budget: budgetNavGuideTarget, more: moreGuideTarget }} /> : null}
+        {householdAvailable ? <NativeBottomNav active={activeTab} onSelect={(tab) => {
+          if (tab === 'deals') setDealsInitialChain(null)
+          if (tab === 'shopping') setFocusedShoppingItemName(null)
+          if (tab === 'recipes') setFocusedMeal(null)
+          setActiveTab(tab)
+        }} guideTargetRefs={{ home: homeNavGuideTarget, shopping: shoppingNavGuideTarget, pantry: pantryNavGuideTarget, budget: budgetNavGuideTarget, more: moreGuideTarget }} /> : null}
       </KeyboardAvoidingView>
       <NativeAssistantModal onClose={() => setAssistantOpen(false)} onShopping={() => setActiveTab('shopping')} visible={assistantOpen} />
       <NativeGuideModal onClose={() => { setGuideOpen(false); setGuideStepId(null); void SecureStore.setItemAsync(GUIDE_DONE_KEY, 'done').catch(() => undefined) }} onNavigate={navigateGuide} visible={guideOpen} />

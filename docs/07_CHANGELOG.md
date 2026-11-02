@@ -30,11 +30,13 @@
 - Řádky nákupního seznamu zobrazují kategorii, preferovaný obchod, poznámku a výrazné označení vysoké priority stejně jako PWA.
 - Detail položky nákupního seznamu umí upravit kategorii, preferovaný obchod, prioritu a poznámku vedle množství a jednotky. Změny procházejí offline frontou a jsou validované stejnou serverovou službou jako PWA.
 - Nákupní seznam nabízí „Nechat displej svítit“ přes `expo-keep-awake`.
-- Domovská obrazovka řadí rychlé akce hned po rozpočtu a nákupním seznamu; rozpočtová karta doplňuje doporučenou denní částku a počet dní do konce období.
+- Domovská obrazovka řadí rychlé akce hned po rozpočtu a nákupním seznamu a používá stejnou jednu kartu se čtyřmi ikonovými dlaždicemi jako PWA. Datum na Domů nově obsahuje rok a český měsíc se už nesprávně nekapitalizuje.
+- Domů a Rozpočet používají společný nativní budget hero s varováním od 80 %, denním zůstatkem, počtem dní a CTA pro nastavení limitu. CTA z Domů otevře plánování rozpočtu přímo.
+- Upozornění „Dnes je důležité“ jsou seskupená do jedné karty. Sekce Profilu a filtry receptů se zalamují, takže se na 390 px neztrácí poslední volby mimo vodorovný viewport.
 - Zásoby doplňují filtr podkategorie a přepínač spotřebovaných položek.
-- CI recovery pro Maestro rozpozná `device offline`, `DeviceServerDiedException` a další ztrátu ADB transportu i tehdy, když se zařízení při následné kontrole už hlásí jako připojené, a průchod jednou zopakuje.
+- CI recovery pro Maestro ověřuje skutečný `adb shell`, rozpozná `device offline`, `DeviceServerDiedException`, nedokončený `Launch app` i další ztrátu ADB transportu a po restartu ADB zkusí flow až třikrát. Selhání, které není infrastrukturní, ukončí hned.
 - Produkční audit už nepočítá Expo CLI mezi produkční závislosti. Auth závislosti byly aktualizovány na `@neondatabase/auth@0.7.0-beta` a `better-auth@1.7.7`; `pnpm audit --prod --audit-level=high` prochází.
-- Ověřeno: Expo a kořenový TypeScript, 41 cílených Vitest testů, produkční dependency audit a Android screenshot opravy zásob.
+- Ověřeno: Expo a kořenový TypeScript, 57 cílených Vitest testů, produkční dependency audit a Android screenshot opravy zásob.
 
 ## 2026-10-25 — Vizuální kontrola Expo aplikace a interaktivní průvodce
 

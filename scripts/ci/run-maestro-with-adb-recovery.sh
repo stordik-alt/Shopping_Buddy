@@ -16,6 +16,9 @@ adb_transport_ready() {
 }
 
 wait_for_adb_transport() {
+  if adb_transport_ready; then
+    return 0
+  fi
   adb reconnect offline >/dev/null 2>&1 || true
   for ready_check in $(seq 1 30); do
     if adb_transport_ready; then
@@ -46,28 +49,35 @@ for attempt in 1 2 3; do
   fi
 
   output_file="$(mktemp)"
+  started_at="$(date +%s)"
   if "$@" 2>&1 | tee "$output_file"; then
     rm -f "$output_file"
     exit 0
   else
     status=$?
   fi
+  elapsed=$(( $(date +%s) - started_at ))
 
   state="$(adb_state)"
   transport_failed=false
   if grep -Eq 'device offline|DeviceServerDiedException|device server died|UNAVAILABLE' "$output_file"; then
     transport_failed=true
   fi
+  if grep -F 'Launch app "' "$output_file" | grep -vq 'COMPLETED'; then
+    transport_failed=true
+  fi
   if ! adb_transport_ready; then
     transport_failed=true
   fi
-  rm -f "$output_file"
 
   if [[ "$attempt" -eq 3 ]] || [[ "$transport_failed" == false ]]; then
+    tail -n 40 "$output_file" >&2
+    rm -f "$output_file"
     echo "Maestro flow '$label' failed (device state: ${state:-unknown}, exit: $status)." >&2
     exit "$status"
   fi
 
-  echo "ADB transport failed during '$label'; restarting ADB transport and retrying." >&2
+  echo "Maestro flow '$label' hit an ADB transport failure after ${elapsed}s; restarting and retrying." >&2
+  rm -f "$output_file"
   restart_adb
 done

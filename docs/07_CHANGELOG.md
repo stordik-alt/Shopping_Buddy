@@ -33,14 +33,16 @@
 - Domovská obrazovka řadí rychlé akce hned po rozpočtu a nákupním seznamu a používá stejnou jednu kartu se čtyřmi ikonovými dlaždicemi jako PWA. Datum na Domů nově obsahuje rok a český měsíc se už nesprávně nekapitalizuje.
 - Domů a Rozpočet používají společný nativní budget hero s varováním od 80 %, denním zůstatkem, počtem dní a CTA pro nastavení limitu. CTA z Domů otevře plánování rozpočtu přímo.
 - Rozpočet doplňuje dvě doporučené útraty jako v PWA: na den a na týden. Nativní karty používají společný výpočet `budgetAllowances`, takže zobrazují stejné částky i stavy „chybí limit“, „překročeno“, „vyčerpáno“ a „období skončilo“.
+- Plán rozpočtu používá sbalitelné karty se souhrny pro příjmy, plánované výdaje, pravidelné příjmy, Kapsy a výhled/nastavení období. CTA „Nastavit rozpočet“ i tlačítko v Plánu otevírají nativní editor měsíčního, aktuálního a příštího rozpočtu a cíle úspor; mobilní API ověřuje roli správce, povolená období i částky.
 - Profil používá informační strukturu PWA s rozbalovacími kartami pro členy, děti, pozvánky, historii změn, smazání dat, obchody, nákupní preference, zásoby a upozornění. Karty jsou sbalené při vstupu, zobrazují krátké shrnutí a při zavření zachovají rozeditované formuláře; nativní volba vzhledu zůstává dostupná jako samostatná sekce.
+- Recepty nabízejí přímo na výchozí obrazovce zvýrazněnou akci „Co uvařit z toho, co mám doma?“. Doporučení podle zásob se načtou pod hledáním, zobrazí pokrytí surovin a jdou skrýt; původní tab „Podle zásob“ zůstává dostupný.
 - Upozornění „Dnes je důležité“ jsou seskupená do jedné karty. Sekce Profilu a filtry receptů se zalamují, takže se na 390 px neztrácí poslední volby mimo vodorovný viewport.
 - Recepty doplňují rychlé filtry PWA. Klepnutí na „Rychlé“, „Večeře“, „Oběd“, „Polévky“, „Maso“, „Těstoviny“, „Dezerty“ nebo „Bezmasé“ nastaví dotaz a rovnou spustí hledání.
 - Obchody umí použít foreground polohu zařízení, hledat řetězce v okruhu 5 km, zobrazit vzdálenost prodejen a vrátit se k ručnímu zadání města. Mobilní API validuje souřadnice a GPS výsledky se záměrně necachují; bez lokality se zobrazí výchozí dotaz jako v PWA.
 - Zásoby doplňují filtr podkategorie a přepínač spotřebovaných položek.
 - CI recovery pro Maestro ověřuje skutečný `adb shell`, rozpozná `device offline`, `DeviceServerDiedException`, nedokončený `Launch app` i další ztrátu ADB transportu a po restartu ADB zkusí flow až třikrát. Selhání, které není infrastrukturní, ukončí hned.
 - Produkční audit už nepočítá Expo CLI mezi produkční závislosti. Auth závislosti byly aktualizovány na `@neondatabase/auth@0.7.0-beta` a `better-auth@1.7.7`; `pnpm audit --prod --audit-level=high` prochází.
-- Ověřeno: Expo a kořenový TypeScript, 71 zaměřených testů rozpočtu a produkční dependency audit; Android screenshot běh nově ověřuje také načtení obchodů podle emulátorové polohy.
+- Ověřeno: Expo a kořenový TypeScript, 100 zaměřených testů rozpočtové logiky, plánovacího API a mobilního API klienta a produkční dependency audit; Android screenshot běh nově ověřuje také načtení obchodů podle emulátorové polohy.
 
 ## 2026-10-25 — Vizuální kontrola Expo aplikace a interaktivní průvodce
 

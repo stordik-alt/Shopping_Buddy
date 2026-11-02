@@ -151,7 +151,8 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
   }, [hasPreferences, recommendationsCollapsed])
 
   const todayIso = dashboard?.today ?? `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
-  const today = new Date(`${todayIso}T12:00:00`).toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long' })
+  const localizedToday = new Date(`${todayIso}T12:00:00`).toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const today = localizedToday.charAt(0).toLocaleUpperCase('cs-CZ') + localizedToday.slice(1)
   const budget = dashboard?.budget ?? null
   const dashboardCategories = budget?.categories.slice().sort((a, b) => b.total - a.total) ?? []
   const dashboardCategoryMax = dashboardCategories[0]?.total ?? 1
@@ -1524,7 +1525,7 @@ function useStyles() {
   return useMemo(() => StyleSheet.create({
   screenContent: { padding: 16, paddingBottom: 24, gap: 12 },
   homeIntro: { paddingTop: 4, paddingBottom: 6 },
-  dateText: { color: colors.secondaryText, fontSize: 13, textTransform: 'capitalize' },
+  dateText: { color: colors.secondaryText, fontSize: 13 },
   greeting: { color: colors.foreground, fontSize: 26, fontWeight: '700', marginTop: 4 },
   bodyText: { color: colors.secondaryText, fontSize: 13, lineHeight: 19 },
   loader: { marginVertical: 18 },

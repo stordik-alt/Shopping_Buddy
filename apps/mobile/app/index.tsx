@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
-  FlatList,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -9,6 +8,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Notifications from 'expo-notifications'
 import { useObserve } from 'expo-observe'
 import * as SecureStore from 'expo-secure-store'
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake'
 import { Bell, ChevronDown, ChevronUp } from 'lucide-react-native'
 import { ITEM_UNITS, unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { useMobileTheme } from '../lib/theme'
@@ -49,6 +50,7 @@ import {
 import { RefreshButton } from '../components/refresh-button'
 import { getAccessToken, hasLocalAuthSession, passwordResetCallbackUrl, requestPasswordReset, resetPassword, sendVerificationCode, signIn, signOut, signUp, verifyEmailCode, verifyEmailLink } from '../lib/auth'
 import { GUIDE_DONE_KEY, shouldAutoStartGuide } from '../../../lib/guide'
+import { GROUP_KEYS, parseListView, SORT_KEYS, type GroupKey, type SortKey } from '../../../lib/list-view-preference'
 import {
   applyOfflineOperations,
   createOfflineItemId,
@@ -82,12 +84,18 @@ import {
   type MobilePantryItem,
   type MobileHouseholdProfileData,
 } from '../lib/shopping-list-api'
+import { filterShoppingListItems, groupShoppingListItems, sortShoppingListItems } from '../lib/shopping-list-view'
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Operaci se nepodařilo dokončit. Zkuste to znovu.'
 }
 
 const activeShoppingListKey = (householdId: string) => `anitka.active-shopping-list:${householdId}`
+const shoppingListViewKey = 'anitka.shopping-list-view.v1'
+const SHOPPING_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
+const SHOPPING_PRIORITIES = ['Nízká', 'Normální', 'Vysoká'] as const
+const SHOPPING_STORES = ['Lidl', 'Albert', 'Kaufland', 'Billa', 'Penny', 'JIP'] as const
+const SHOPPING_WAKE_LOCK_TAG = 'anitka-shopping-list'
 
 type MobileAuthAction =
   | { kind: 'sign-in'; email: string; password: string }
@@ -341,6 +349,13 @@ export default function HomeScreen() {
   const [householdAvailable, setHouseholdAvailable] = useState(false)
   const [householdMissing, setHouseholdMissing] = useState(false)
   const [items, setItems] = useState<MobileShoppingItem[]>([])
+  const [listFilter, setListFilter] = useState('')
+  const [listCategory, setListCategory] = useState<string>('Vše')
+  const [listShowCompleted, setListShowCompleted] = useState(true)
+  const [listSort, setListSort] = useState<SortKey>('Výchozí')
+  const [listGroup, setListGroup] = useState<GroupKey>('Bez seskupení')
+  const [listFiltersOpen, setListFiltersOpen] = useState(false)
+  const [keepShoppingScreenAwake, setKeepShoppingScreenAwake] = useState(false)
   const [listName, setListName] = useState('Nákupní seznam')
   const [activeListId, setActiveListId] = useState('')
   const [shoppingLists, setShoppingLists] = useState<{ id: string; name: string }[]>([])
@@ -353,6 +368,10 @@ export default function HomeScreen() {
   const [editItem, setEditItem] = useState<MobileShoppingItem | null>(null)
   const [editQuantity, setEditQuantity] = useState('')
   const [editUnit, setEditUnit] = useState<ItemUnit>('ks')
+  const [editCategory, setEditCategory] = useState<(typeof SHOPPING_CATEGORIES)[number]>('Potraviny')
+  const [editPriority, setEditPriority] = useState<(typeof SHOPPING_PRIORITIES)[number]>('Normální')
+  const [editStore, setEditStore] = useState<(typeof SHOPPING_STORES)[number] | null>(null)
+  const [editNote, setEditNote] = useState('')
   const [priceData, setPriceData] = useState<MobileDashboardSummary | null>(null)
   const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false)
   const [barcodeBusy, setBarcodeBusy] = useState(false)
@@ -360,6 +379,7 @@ export default function HomeScreen() {
   const [offline, setOffline] = useState(false)
   const barcodeHandled = useRef(false)
   const guideAutoStartChecked = useRef(false)
+  const listViewLoaded = useRef(false)
   const offlineSnapshot = useRef<OfflineShoppingSnapshot | null>(null)
   const assistantGuideTarget = useNativeGuideTarget('assistant-open')
   const notificationGuideTarget = useNativeGuideTarget('notification-button')
@@ -435,6 +455,46 @@ export default function HomeScreen() {
       .catch(() => { if (active) guideAutoStartChecked.current = true })
     return () => { active = false }
   }, [householdAvailable, signedIn])
+
+  useEffect(() => {
+    if (!signedIn) return
+    let active = true
+    SecureStore.getItemAsync(shoppingListViewKey)
+      .then((raw) => {
+        if (!active) return
+        const view = parseListView(raw, SHOPPING_CATEGORIES)
+        setListCategory(view.category)
+        setListShowCompleted(view.showCompleted)
+        setListSort(view.sort)
+        setListGroup(view.group)
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) listViewLoaded.current = true
+      })
+    return () => { active = false }
+  }, [signedIn])
+
+  useEffect(() => {
+    if (!listViewLoaded.current) return
+    void SecureStore.setItemAsync(shoppingListViewKey, JSON.stringify({
+      category: listCategory,
+      showCompleted: listShowCompleted,
+      sort: listSort,
+      group: listGroup,
+    })).catch(() => undefined)
+  }, [listCategory, listGroup, listShowCompleted, listSort])
+
+  useEffect(() => {
+    if (!keepShoppingScreenAwake || activeTab !== 'shopping' || shoppingView !== 'list') {
+      void deactivateKeepAwake(SHOPPING_WAKE_LOCK_TAG).catch(() => undefined)
+      return
+    }
+    void activateKeepAwakeAsync(SHOPPING_WAKE_LOCK_TAG).catch(() => {
+      setKeepShoppingScreenAwake(false)
+    })
+    return () => { void deactivateKeepAwake(SHOPPING_WAKE_LOCK_TAG).catch(() => undefined) }
+  }, [activeTab, keepShoppingScreenAwake, shoppingView])
 
   function showSnapshot(snapshot: OfflineShoppingSnapshot) {
     offlineSnapshot.current = snapshot
@@ -513,7 +573,6 @@ export default function HomeScreen() {
         await clearLastOfflineContext()
         return
       }
-      setSignedIn(true)
       let profile
       try {
         profile = await getCurrentUser()
@@ -522,6 +581,7 @@ export default function HomeScreen() {
         const context = await readLastOfflineContext()
         const cached = context ? await readOfflineSnapshot(context.userId, context.householdId) : null
         if (!context || !cached) throw caught
+        setSignedIn(true)
         showSnapshot(cached)
         setUserName(context.userName)
         setHouseholdMissing(false)
@@ -529,6 +589,7 @@ export default function HomeScreen() {
         setOffline(true)
         return
       }
+      setSignedIn(true)
       setUserName(profile.user.name)
       setUserEmail(profile.user.email)
       setHouseholdRole(profile.household?.role ?? '')
@@ -922,6 +983,10 @@ export default function HomeScreen() {
     setEditItem(item)
     setEditQuantity(String(item.quantity))
     setEditUnit(item.unit)
+    setEditCategory(item.category ?? 'Potraviny')
+    setEditPriority(item.priority ?? 'Normální')
+    setEditStore(SHOPPING_STORES.includes(item.store as typeof SHOPPING_STORES[number]) ? item.store as typeof SHOPPING_STORES[number] : null)
+    setEditNote(item.note ?? '')
   }
 
   async function saveEdit() {
@@ -941,7 +1006,14 @@ export default function HomeScreen() {
         pending: enqueueOfflineOperation(current.pending, {
           kind: 'update',
           itemId: editItem.id,
-          changes: { quantity, unit: editUnit },
+          changes: {
+            quantity,
+            unit: editUnit,
+            category: editCategory,
+            priority: editPriority,
+            store: editStore,
+            note: editNote.trim(),
+          },
         }),
       }
       await saveOfflineSnapshot(updated)
@@ -957,6 +1029,25 @@ export default function HomeScreen() {
 
   const remaining = items.filter((item) => !item.done).length
   const completed = items.length - remaining
+  const filteredShoppingItems = useMemo(
+    () => sortShoppingListItems<MobileShoppingItem>(filterShoppingListItems<MobileShoppingItem>(items, {
+      query: listFilter,
+      category: listCategory,
+      showCompleted: listShowCompleted,
+    }), listSort),
+    [items, listCategory, listFilter, listShowCompleted, listSort],
+  )
+  const groupedShoppingItems = useMemo(
+    () => groupShoppingListItems<MobileShoppingItem>(filteredShoppingItems, listGroup),
+    [filteredShoppingItems, listGroup],
+  )
+  const activeListFilterCount = [
+    listFilter.trim().length > 0,
+    listCategory !== 'Vše',
+    !listShowCompleted,
+    listSort !== 'Výchozí',
+    listGroup !== 'Bez seskupení',
+  ].filter(Boolean).length
   const pageTitle = activeTab === 'shopping' && shoppingView === 'receipts' ? 'Účtenky' : activeTab === 'shopping' && shoppingView === 'purchases' ? 'Moje nákupy' : ({
     home: 'Asistent pro domácnost',
     shopping: 'Nákup',
@@ -1080,7 +1171,17 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.summary}>
                   <Text style={styles.summaryText}>{remaining} k nákupu · {completed} hotovo</Text>
-                  <RefreshButton disabled={busyItemId !== null} loading={busy} onPress={() => void load()} />
+                  <View style={styles.summaryActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ checked: keepShoppingScreenAwake }}
+                      onPress={() => setKeepShoppingScreenAwake((awake) => !awake)}
+                      style={[styles.wakeButton, keepShoppingScreenAwake && styles.wakeButtonActive]}
+                    >
+                      <Text style={[styles.wakeButtonText, keepShoppingScreenAwake && styles.wakeButtonTextActive]}>{keepShoppingScreenAwake ? 'Displej nezhasne' : 'Nechat displej svítit'}</Text>
+                    </Pressable>
+                    <RefreshButton disabled={busyItemId !== null} loading={busy} onPress={() => void load()} />
+                  </View>
                 </View>
 
                 <UsualItemsScreen
@@ -1109,6 +1210,63 @@ export default function HomeScreen() {
                 </View>
                 <Pressable
                   accessibilityRole="button"
+                  accessibilityState={{ expanded: listFiltersOpen }}
+                  onPress={() => setListFiltersOpen((open) => !open)}
+                  style={styles.filtersToggle}
+                >
+                  <Text style={styles.filtersToggleText}>Filtry a řazení</Text>
+                  {activeListFilterCount > 0 ? <Text style={styles.filtersCount}>{activeListFilterCount}</Text> : null}
+                  <ChevronDown color={colors.secondaryText} size={18} style={listFiltersOpen ? styles.filtersChevronOpen : undefined} />
+                </Pressable>
+                {listFiltersOpen ? (
+                  <View style={styles.filtersPanel}>
+                    <TextInput
+                      accessibilityLabel="Filtrovat seznam"
+                      onChangeText={setListFilter}
+                      placeholder="Filtrovat položky"
+                      placeholderTextColor={colors.mutedText}
+                      style={styles.input}
+                      value={listFilter}
+                    />
+
+                    <Text style={styles.filterLabel}>Kategorie</Text>
+                    <View style={styles.filterChoices}>
+                      {(['Vše', ...SHOPPING_CATEGORIES] as const).map((category) => {
+                        const selected = listCategory === category
+                        return <Pressable key={category} accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={() => setListCategory(category)} style={[styles.filterChoice, selected && styles.filterChoiceActive]}><Text style={[styles.filterChoiceText, selected && styles.filterChoiceTextActive]}>{category}</Text></Pressable>
+                      })}
+                    </View>
+
+                    <Text style={styles.filterLabel}>Řadit</Text>
+                    <View style={styles.filterChoices}>
+                      {SORT_KEYS.map((sort) => {
+                        const selected = listSort === sort
+                        return <Pressable key={sort} accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={() => setListSort(sort)} style={[styles.filterChoice, selected && styles.filterChoiceActive]}><Text style={[styles.filterChoiceText, selected && styles.filterChoiceTextActive]}>{sort}</Text></Pressable>
+                      })}
+                    </View>
+
+                    <Text style={styles.filterLabel}>Seskupit</Text>
+                    <View style={styles.filterChoices}>
+                      {GROUP_KEYS.map((group) => {
+                        const selected = listGroup === group
+                        return <Pressable key={group} accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={() => setListGroup(group)} style={[styles.filterChoice, selected && styles.filterChoiceActive]}><Text style={[styles.filterChoiceText, selected && styles.filterChoiceTextActive]}>{group}</Text></Pressable>
+                      })}
+                    </View>
+
+                    <View style={styles.filterActions}>
+                      <Pressable accessibilityRole="button" accessibilityState={{ checked: listShowCompleted }} onPress={() => setListShowCompleted((shown) => !shown)} style={styles.filterSecondaryButton}><Text style={styles.filterSecondaryButtonText}>{listShowCompleted ? 'Skrýt hotové' : 'Zobrazit hotové'}</Text></Pressable>
+                      {activeListFilterCount > 0 ? <Pressable accessibilityRole="button" onPress={() => {
+                        setListFilter('')
+                        setListCategory('Vše')
+                        setListShowCompleted(true)
+                        setListSort('Výchozí')
+                        setListGroup('Bez seskupení')
+                      }} style={styles.filterSecondaryButton}><Text style={styles.filterSecondaryButtonText}>Zrušit filtry</Text></Pressable> : null}
+                    </View>
+                  </View>
+                ) : null}
+                <Pressable
+                  accessibilityRole="button"
                   disabled={busy || busyItemId !== null}
                   onPress={() => {
                     setError(null)
@@ -1125,6 +1283,7 @@ export default function HomeScreen() {
                 {editItem ? (
                   <View style={styles.card}>
                     <Text style={styles.sectionTitle}>Upravit: {editItem.name}</Text>
+                    <Text style={styles.label}>Množství</Text>
                     <TextInput
                       accessibilityLabel="Množství"
                       keyboardType="decimal-pad"
@@ -1132,6 +1291,7 @@ export default function HomeScreen() {
                       style={styles.input}
                       value={editQuantity}
                     />
+                    <Text style={styles.label}>Jednotka</Text>
                     <View style={styles.units}>
                       {ITEM_UNITS.map((unit) => (
                         <Pressable
@@ -1145,6 +1305,38 @@ export default function HomeScreen() {
                         </Pressable>
                       ))}
                     </View>
+                    <Text style={styles.label}>Kategorie</Text>
+                    <View style={styles.units}>
+                      {SHOPPING_CATEGORIES.map((category) => {
+                        const selected = editCategory === category
+                        return <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} key={category} onPress={() => setEditCategory(category)} style={[styles.unitButton, selected && styles.unitSelected]}><Text style={[styles.unitText, selected && styles.unitTextSelected]}>{category}</Text></Pressable>
+                      })}
+                    </View>
+                    <Text style={styles.label}>Preferovaný obchod</Text>
+                    <View style={styles.units}>
+                      <Pressable accessibilityRole="radio" accessibilityState={{ checked: editStore === null }} onPress={() => setEditStore(null)} style={[styles.unitButton, editStore === null && styles.unitSelected]}><Text style={[styles.unitText, editStore === null && styles.unitTextSelected]}>Bez preference</Text></Pressable>
+                      {SHOPPING_STORES.map((store) => {
+                        const selected = editStore === store
+                        return <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} key={store} onPress={() => setEditStore(store)} style={[styles.unitButton, selected && styles.unitSelected]}><Text style={[styles.unitText, selected && styles.unitTextSelected]}>{store}</Text></Pressable>
+                      })}
+                    </View>
+                    <Text style={styles.label}>Priorita</Text>
+                    <View style={styles.units}>
+                      {SHOPPING_PRIORITIES.map((priority) => {
+                        const selected = editPriority === priority
+                        return <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} key={priority} onPress={() => setEditPriority(priority)} style={[styles.unitButton, selected && styles.unitSelected]}><Text style={[styles.unitText, selected && styles.unitTextSelected]}>{priority}</Text></Pressable>
+                      })}
+                    </View>
+                    <Text style={styles.label}>Poznámka</Text>
+                    <TextInput
+                      accessibilityLabel="Poznámka k položce"
+                      maxLength={1000}
+                      onChangeText={setEditNote}
+                      placeholder="Např. vzít bez laktózy"
+                      placeholderTextColor={colors.mutedText}
+                      style={styles.input}
+                      value={editNote}
+                    />
                     <View style={styles.actions}>
                       <Pressable accessibilityRole="button" onPress={() => setEditItem(null)} style={styles.secondaryButton}>
                         <Text style={styles.secondaryButtonText}>Zrušit</Text>
@@ -1164,12 +1356,23 @@ export default function HomeScreen() {
                     <Text style={styles.sectionTitle}>Seznam je zatím prázdný</Text>
                     <Text style={styles.supporting}>Přidejte první položku, kterou potřebujete nakoupit.</Text>
                   </View>
+                ) : filteredShoppingItems.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.sectionTitle}>Nic neodpovídá filtrům</Text>
+                    <Text style={styles.supporting}>Změňte hledání, kategorii nebo zobrazení hotových položek.</Text>
+                  </View>
                 ) : (
-                  <FlatList
+                  <SectionList
                     contentContainerStyle={styles.list}
-                    data={items}
+                    sections={groupedShoppingItems}
                     keyExtractor={(item) => item.id}
                     keyboardShouldPersistTaps="handled"
+                    stickySectionHeadersEnabled={false}
+                    renderSectionHeader={({ section }) => (
+                      <View style={styles.shoppingGroupHeader}>
+                        <Text style={styles.shoppingGroupTitle}>{section.title}</Text>
+                      </View>
+                    )}
                     renderItem={({ item }) => (
                       <ShoppingRow guideTargetRef={items.find((candidate) => !candidate.done)?.id === item.id ? shoppingItemGuideTarget : undefined} item={item} priceData={priceData} busy={busyItemId === item.id} disabled={busy || busyItemId !== null} onEdit={() => openEdit(item)} onToggle={() => void handleToggle(item)} />
                     )}
@@ -1337,6 +1540,11 @@ function useStyles() {
   pendingLabel: { color: colors.warning, fontSize: 12, marginTop: 4 },
   summary: { minHeight: 52, marginHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   summaryText: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
+  summaryActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  wakeButton: { minHeight: 40, maxWidth: 132, justifyContent: 'center', paddingHorizontal: 9, borderColor: colors.border, borderWidth: 1, borderRadius: 12, backgroundColor: colors.card },
+  wakeButtonActive: { borderColor: colors.accent, backgroundColor: colors.accentSubtle },
+  wakeButtonText: { color: colors.secondaryText, fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  wakeButtonTextActive: { color: colors.accentText },
   listPicker: { gap: 8, marginHorizontal: 16, marginTop: 6, marginBottom: 4, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 16, backgroundColor: colors.card },
   listPickerHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   listPickerTitleWrap: { flex: 1, minWidth: 0, gap: 2 },
@@ -1348,6 +1556,22 @@ function useStyles() {
   listPickerChipActive: { borderColor: colors.accent, backgroundColor: colors.accentSubtle },
   listPickerChipText: { color: colors.secondaryText, fontSize: 12, fontWeight: '600' },
   listPickerChipTextActive: { color: colors.accentText, fontWeight: '700' },
+  filtersToggle: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 12, borderColor: colors.border, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card },
+  filtersToggleText: { flex: 1, color: colors.secondaryText, fontSize: 14, fontWeight: '700' },
+  filtersCount: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, color: colors.primaryForeground, backgroundColor: colors.accent, fontSize: 12, fontWeight: '800', lineHeight: 20, textAlign: 'center' },
+  filtersChevronOpen: { transform: [{ rotate: '180deg' }] },
+  filtersPanel: { marginHorizontal: 16, marginTop: -4, marginBottom: 12, padding: 14, borderColor: colors.border, borderRadius: 16, borderWidth: 1, backgroundColor: colors.card, gap: 10 },
+  filterLabel: { color: colors.secondaryText, fontSize: 12, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
+  filterChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  filterChoice: { minHeight: 36, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 11, borderColor: colors.border, borderRadius: 18, borderWidth: 1, backgroundColor: colors.elevated },
+  filterChoiceActive: { borderColor: colors.accent, backgroundColor: colors.accentSubtle },
+  filterChoiceText: { color: colors.secondaryText, fontSize: 12, fontWeight: '600' },
+  filterChoiceTextActive: { color: colors.accentText, fontWeight: '800' },
+  filterActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 2 },
+  filterSecondaryButton: { minHeight: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1 },
+  filterSecondaryButtonText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
+  shoppingGroupHeader: { paddingTop: 5, paddingBottom: 2 },
+  shoppingGroupTitle: { color: colors.secondaryText, fontSize: 12, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
   completeShoppingBar: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, borderTopColor: colors.border, borderTopWidth: 1, backgroundColor: colors.background },
   completeShoppingButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: colors.accent },
   completeShoppingText: { color: '#0a1a3f', fontSize: 16, fontWeight: '700' },

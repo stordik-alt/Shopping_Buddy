@@ -1,10 +1,10 @@
 import { ITEM_UNITS, type ItemUnit } from '@anitka/shared/units'
-import type { MobileShoppingItem, MobileShoppingList } from './shopping-list-api'
+import type { MobileShoppingItem, MobileShoppingItemChanges, MobileShoppingList } from './shopping-list-api'
 
 export type OfflineShoppingOperation =
   | { kind: 'add'; item: MobileShoppingItem }
   | { kind: 'toggle'; itemId: string; done: boolean }
-  | { kind: 'update'; itemId: string; changes: { quantity?: number; unit?: ItemUnit } }
+  | { kind: 'update'; itemId: string; changes: MobileShoppingItemChanges }
 
 export type OfflineShoppingSnapshot = {
   version: 1
@@ -23,7 +23,7 @@ export type OfflineContext = {
 export type OfflineShoppingApi = {
   add: (name: string, clientId: string, quantity?: number, unit?: ItemUnit, details?: { listId?: string }) => Promise<{ item: MobileShoppingItem }>
   toggle: (itemId: string, done: boolean) => Promise<unknown>
-  update: (itemId: string, changes: { quantity?: number; unit?: ItemUnit }) => Promise<unknown>
+  update: (itemId: string, changes: MobileShoppingItemChanges) => Promise<unknown>
 }
 
 export type OfflineSyncResult = {
@@ -217,8 +217,13 @@ function isOfflineShoppingOperation(value: unknown): value is OfflineShoppingOpe
     return (
       (changes.quantity === undefined || (typeof changes.quantity === 'number' && Number.isFinite(changes.quantity) && changes.quantity > 0 && changes.quantity < 10_000_000)) &&
       (changes.unit === undefined || (typeof changes.unit === 'string' && ITEM_UNITS.includes(changes.unit as ItemUnit))) &&
+      (changes.category === undefined || (typeof changes.category === 'string' && ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'].includes(changes.category))) &&
+      (changes.priority === undefined || changes.priority === 'Nízká' || changes.priority === 'Normální' || changes.priority === 'Vysoká') &&
+      (changes.note === undefined || typeof changes.note === 'string') &&
+      (changes.store === undefined || changes.store === null || typeof changes.store === 'string') &&
+      (changes.productTypes === undefined || changes.productTypes === null || (Array.isArray(changes.productTypes) && changes.productTypes.every((value) => typeof value === 'string'))) &&
       Object.keys(changes).length > 0 &&
-      Object.keys(changes).every((key) => key === 'quantity' || key === 'unit')
+      Object.keys(changes).every((key) => ['quantity', 'unit', 'category', 'priority', 'note', 'store', 'productTypes'].includes(key))
     )
   }
   return false

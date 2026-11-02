@@ -30,9 +30,23 @@ export type MobileShoppingItem = {
   done: boolean
   price?: number
   category?: ItemCategory
+  priority?: 'Nízká' | 'Normální' | 'Vysoká'
+  note?: string
+  store?: string | null
+  detail?: string
   productId?: string | null
   productTypes?: string[] | null
   pending?: boolean
+}
+
+export type MobileShoppingItemChanges = {
+  quantity?: number
+  unit?: ItemUnit
+  category?: ItemCategory
+  priority?: 'Nízká' | 'Normální' | 'Vysoká'
+  note?: string
+  store?: string | null
+  productTypes?: string[] | null
 }
 
 export type MobileShoppingList = {
@@ -940,7 +954,7 @@ export function receiptImageUrl(receiptId: string) {
   return `${getApiUrl()}/api/mobile/receipts/${encodeURIComponent(receiptId)}/image`
 }
 
-export function updateShoppingItem(itemId: string, changes: { quantity?: number; unit?: ItemUnit }) {
+export function updateShoppingItem(itemId: string, changes: MobileShoppingItemChanges) {
   return request<{ ok: true }>(`/api/mobile/shopping-list/${encodeURIComponent(itemId)}`, {
     method: 'PATCH',
     body: JSON.stringify(changes),

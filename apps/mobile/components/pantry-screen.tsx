@@ -8,7 +8,7 @@ import { useMobileTheme } from '../lib/theme'
 import { useNativeGuideTarget } from './native-guide-targets'
 import { getAccessToken } from '../lib/auth'
 import { ProductIllustration } from './product-illustration'
-import { PANTRY_QUANTITY_STEP, splitPantryReview } from '../../../lib/pantry'
+import { isPantryItemAvailable, PANTRY_QUANTITY_STEP, splitPantryReview } from '../../../lib/pantry'
 import { PANTRY_TRACKING } from '../../../lib/pantry'
 import { PRODUCT_TYPES } from '../../../lib/product-types'
 import { subcategoriesOfItem } from '../../../lib/product-subcategories'
@@ -36,6 +36,8 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
   const itemGuideTarget = useNativeGuideTarget('pantry-item-row')
   const [pantry, setPantry] = useState<MobilePantryState | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null)
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string | null>(null)
+  const [showConsumed, setShowConsumed] = useState(true)
   const [loading, setLoading] = useState(true)
   const [busyItemId, setBusyItemId] = useState<string | null>(null)
   const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null)
@@ -84,10 +86,23 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
   }, [load])
 
   const selected = pantry?.places.find((place) => place.key === selectedPlace)
-  const selectedItems = useMemo(
+  const itemsInPlace = useMemo(
     () => pantry?.items.filter((item) => (item.customPlaceId ? `custom:${item.customPlaceId}` : item.location) === selectedPlace) ?? [],
     [pantry, selectedPlace],
   )
+  const consumedInPlace = itemsInPlace.filter((item) => !isPantryItemAvailable(item.quantity)).length
+  const subcategoryCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of itemsInPlace) {
+      const label = item.subcategory ?? 'Nezařazeno'
+      counts.set(label, (counts.get(label) ?? 0) + 1)
+    }
+    return counts
+  }, [itemsInPlace])
+  const selectedItems = useMemo(() => itemsInPlace.filter((item) =>
+    (!subcategoryFilter || (subcategoryFilter === 'Nezařazeno' ? !item.subcategory : item.subcategory === subcategoryFilter))
+    && (showConsumed || isPantryItemAvailable(item.quantity)),
+  ), [itemsInPlace, showConsumed, subcategoryFilter])
   const reviewGroups = useMemo(() => {
     if (!pantry || !reviewScope) return []
     const inScope = reviewScope === 'all'
@@ -296,10 +311,12 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
           <Text numberOfLines={1} style={styles.title}>Zásoby</Text>
           <Text style={styles.supporting}>Vyberte místo, kde jsou věci uložené.</Text>
         </View>
-        <Pressable ref={addGuideTarget} accessibilityRole="button" onPress={() => setAddOpen(true)} style={styles.addButton}><Text style={styles.addButtonText}>＋ Přidat</Text></Pressable>
-        {pantry?.items.some((item) => !item.subcategory) ? <Pressable accessibilityRole="button" disabled={categorizing} onPress={() => void autoCategorize()} style={[styles.autoButton, categorizing && styles.disabled]}><Text style={styles.autoButtonText}>{categorizing ? 'Zařazuji…' : 'Zařadit automaticky'}</Text></Pressable> : null}
-        {pantry?.items.length ? <Pressable ref={checkGuideTarget} accessibilityRole="button" onPress={() => openReview('location')} style={styles.reviewOpenButton}><ClipboardCheck color={colors.accentText} size={17} /><Text style={styles.reviewOpenText}>Kontrola</Text></Pressable> : null}
-        <RefreshButton loading={loading} onPress={() => void load()} />
+        <View style={styles.headingActions}>
+          <Pressable ref={addGuideTarget} accessibilityRole="button" onPress={() => setAddOpen(true)} style={styles.addButton}><Text style={styles.addButtonText}>＋ Přidat</Text></Pressable>
+          {pantry?.items.some((item) => !item.subcategory) ? <Pressable accessibilityRole="button" disabled={categorizing} onPress={() => void autoCategorize()} style={[styles.autoButton, categorizing && styles.disabled]}><Text style={styles.autoButtonText}>{categorizing ? 'Zařazuji…' : 'Zařadit automaticky'}</Text></Pressable> : null}
+          {pantry?.items.length ? <Pressable ref={checkGuideTarget} accessibilityRole="button" onPress={() => openReview('location')} style={styles.reviewOpenButton}><ClipboardCheck color={colors.accentText} size={17} /><Text style={styles.reviewOpenText}>Kontrola</Text></Pressable> : null}
+          <RefreshButton loading={loading} onPress={() => void load()} />
+        </View>
       </View>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
 
@@ -310,7 +327,7 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
         </View>
       ) : pantry ? (
         <>
-          <ScrollView horizontal contentContainerStyle={styles.placeList} showsHorizontalScrollIndicator={false}>
+          <View style={styles.placeList}>
             {pantry.places.map((place) => {
               const count = pantry.items.filter((item) => (item.customPlaceId ? `custom:${item.customPlaceId}` : item.location) === place.key).length
               const active = selectedPlace === place.key
@@ -320,7 +337,7 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
                   accessibilityRole="tab"
                   accessibilityState={{ selected: active }}
                   key={place.key}
-                  onPress={() => { setSelectedPlace(place.key); setEditingPlaceId(null) }}
+                  onPress={() => { setSelectedPlace(place.key); setSubcategoryFilter(null); setEditingPlaceId(null) }}
                   style={[styles.place, active && styles.placeActive]}
                 >
                   <Text style={[styles.placeName, active && styles.placeNameActive]}>{place.name}</Text>
@@ -328,9 +345,29 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
                 </Pressable>
               )
             })}
-          </ScrollView>
+          </View>
 
+          {pantry.places.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.sectionTitle}>Místa zásob nejsou dostupná</Text>
+              <Text style={styles.supporting}>Obnovte zásoby. Pokud se místa stále nezobrazí, zkontrolujte nastavení zásob v profilu.</Text>
+            </View>
+          ) : null}
           {selected ? <Text style={styles.sectionTitle}>{selected.name}</Text> : null}
+          {subcategoryCounts.size > 1 ? (
+            <ScrollView horizontal contentContainerStyle={styles.horizontalChips} showsHorizontalScrollIndicator={false}>
+              <Pressable accessibilityRole="radio" accessibilityState={{ checked: subcategoryFilter === null }} onPress={() => setSubcategoryFilter(null)} style={[styles.choiceChip, subcategoryFilter === null && styles.choiceChipActive]}><Text style={[styles.choiceText, subcategoryFilter === null && styles.choiceTextActive]}>Vše ({itemsInPlace.length})</Text></Pressable>
+              {[...subcategoryCounts.entries()].sort(([left], [right]) => left.localeCompare(right, 'cs-CZ')).map(([subcategory, count]) => {
+                const selectedSubcategory = subcategoryFilter === subcategory
+                return <Pressable key={subcategory} accessibilityRole="radio" accessibilityState={{ checked: selectedSubcategory }} onPress={() => setSubcategoryFilter(subcategory)} style={[styles.choiceChip, selectedSubcategory && styles.choiceChipActive]}><Text style={[styles.choiceText, selectedSubcategory && styles.choiceTextActive]}>{subcategory} ({count})</Text></Pressable>
+              })}
+            </ScrollView>
+          ) : null}
+          {consumedInPlace > 0 ? (
+            <Pressable accessibilityRole="button" accessibilityState={{ checked: showConsumed }} onPress={() => setShowConsumed((shown) => !shown)} style={styles.consumedToggle}>
+              <Text style={styles.consumedToggleText}>{showConsumed ? 'Skrýt spotřebované' : `Zobrazit spotřebované (${consumedInPlace})`}</Text>
+            </Pressable>
+          ) : null}
           {selectedItems.length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.sectionTitle}>Toto místo je prázdné</Text>
@@ -603,17 +640,20 @@ function useStyles() {
   return useMemo(() => StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
-  heading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  heading: { minHeight: 58, gap: 8 },
   headingText: { flex: 1, minWidth: 0 },
+  headingActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   title: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
   supporting: { color: colors.secondaryText, fontSize: 13, lineHeight: 19, marginTop: 4 },
-  placeList: { gap: 8, paddingVertical: 2, paddingRight: 8 },
-  place: { minWidth: 105, borderColor: colors.inputBorder, borderRadius: 14, borderWidth: 1, backgroundColor: colors.card, paddingHorizontal: 13, paddingVertical: 11 },
+  placeList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 2 },
+  place: { flexBasis: '30%', flexGrow: 1, minWidth: 96, borderColor: colors.inputBorder, borderRadius: 14, borderWidth: 1, backgroundColor: colors.card, paddingHorizontal: 13, paddingVertical: 11 },
   placeActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   placeName: { color: colors.primary, fontSize: 14, fontWeight: '700' },
   placeNameActive: { color: colors.primaryForeground },
   placeCount: { color: colors.secondaryText, fontSize: 12, marginTop: 4 },
   sectionTitle: { color: colors.foreground, fontSize: 17, fontWeight: '700' },
+  consumedToggle: { minHeight: 38, alignSelf: 'flex-start', justifyContent: 'center', paddingHorizontal: 12, borderColor: colors.border, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card },
+  consumedToggleText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
   itemCard: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 14, gap: 10 },
   itemHeading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12 },
   itemHeadingText: { flex: 1, minWidth: 0, gap: 3 },

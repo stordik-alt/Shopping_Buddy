@@ -16,7 +16,7 @@ vi.mock('./auth', () => ({
 vi.mock('./config', () => ({ getApiUrl: () => 'https://anitka.example' }))
 
 import { Observe } from 'expo-observe'
-import { addShoppingItem, buildShoppingPlan, cancelReceiptImport, confirmReceiptReview, createShoppingList, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, getUsualItems, importManualReceipt, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, receiptImageUrl, resolveDuplicateReceipt, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, uploadReceiptFile, uploadReceiptPhoto } from './shopping-list-api'
+import { addShoppingItem, buildShoppingPlan, cancelReceiptImport, confirmReceiptReview, createShoppingList, getBudgetSummary, getPantry, getPendingReceiptImports, getRecipe, getShoppingList, getUsualItems, importManualReceipt, lookupBarcode, MobileApiError, pinShoppingProduct, processReceiptImport, receiptImageUrl, resolveDuplicateReceipt, reviewPantry, searchProducts, searchRecipes, toggleShoppingItem, unpinShoppingProduct, updatePantryItem, updateShoppingItem, uploadReceiptFile, uploadReceiptPhoto } from './shopping-list-api'
 
 describe('mobile shopping-list API client', () => {
   beforeEach(() => {
@@ -53,6 +53,16 @@ describe('mobile shopping-list API client', () => {
     expect(fetch).toHaveBeenCalledWith(
       'https://anitka.example/api/mobile/shopping-list',
       expect.objectContaining({ body: JSON.stringify({ name: 'Mléko', clientId: 'client-2', quantity: 1.5, unit: 'l' }) }),
+    )
+  })
+
+  it('sends the complete shopping item metadata to the mobile update endpoint', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    const changes = { category: 'Drogerie' as const, priority: 'Vysoká' as const, store: 'Lidl', note: 'Bez parfému' }
+    await updateShoppingItem('item/1', changes)
+    expect(fetch).toHaveBeenCalledWith(
+      'https://anitka.example/api/mobile/shopping-list/item%2F1',
+      expect.objectContaining({ method: 'PATCH', body: JSON.stringify(changes) }),
     )
   })
 

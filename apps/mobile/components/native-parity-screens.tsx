@@ -165,6 +165,10 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
   const restock = (dashboard?.restockSuggestions ?? []).filter((suggestion) => !restockDismissed.includes(dismissalKey(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil))).slice(0, 3)
   const listDealRows = dashboard ? assessDealQuality(dashboard.productPrices, todayIso).slice(0, 3) : []
   const listOfferRows = dashboard?.offers.slice(0, Math.max(0, 3 - listDealRows.length)) ?? []
+  const daysRemaining = budget
+    ? Math.max(1, Math.floor((Date.parse(`${budget.period.end}T12:00:00Z`) - Date.parse(`${todayIso}T12:00:00Z`)) / 86_400_000) + 1)
+    : 0
+  const dailyRemaining = budget && daysRemaining > 0 ? budget.remaining / daysRemaining : null
 
   async function dismissRestock(suggestion: (typeof restock)[number]) {
     const key = dismissalKey(suggestion.productTypeKey, suggestion.offer.productId, suggestion.offer.validUntil)
@@ -205,6 +209,7 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
           <Text style={styles.cardEyebrow}>ROZPOČET DOMÁCNOSTI</Text>
           <Text style={styles.dashboardValue}>{budget ? `Zbývá ${money(Math.max(0, budget.remaining), budget.currency)}` : 'Zobrazit rozpočet'}</Text>
           {budget ? <Text style={styles.bodyText}>Utraceno {money(budget.spent, budget.currency)} z {money(budget.budget, budget.currency)}</Text> : null}
+          {dailyRemaining != null && dailyRemaining >= 0 ? <Text style={styles.noteText}>Na den zbývá {money(dailyRemaining, budget!.currency)} ({daysRemaining} dní do konce období)</Text> : null}
           {budget && budget.budget > 0 ? <View accessibilityLabel={`Vyčerpáno ${Math.min(100, Math.max(0, (budget.spent / budget.budget) * 100)).toFixed(0)} procent rozpočtu`} style={styles.budgetTrack}><View style={[styles.budgetFill, budget.remaining < 0 && styles.budgetFillOver, { width: `${Math.min(100, Math.max(0, (budget.spent / budget.budget) * 100))}%` }]} /></View> : null}
         </View>
         <ArrowRight color={colors.mutedText} size={20} />
@@ -219,6 +224,20 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
         </View>
         <ArrowRight color={colors.mutedText} size={20} />
       </Pressable>
+      <Text style={styles.sectionHeading}>Rychlé akce</Text>
+      <View style={styles.quickActions}>
+        {[
+          { label: 'Do nákupu', Icon: Plus, action: () => onSelect('shopping') },
+          { label: 'Výdaj', Icon: WalletCards, action: onQuickExpense },
+          { label: 'Účtenka', Icon: ReceiptText, action: () => onOpenReceipts() },
+          { label: 'Obchody', Icon: MapPin, action: () => onSelect('stores') },
+        ].map(({ label, Icon, action }) => (
+          <Pressable accessibilityRole="button" accessibilityLabel={label} key={label} onPress={action} style={styles.quickAction}>
+            <Icon color={colors.primary} size={21} />
+            <Text style={styles.quickActionLabel}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
       {dashboard?.weeklyAllowance != null ? <View style={styles.insightCard}><View style={styles.cardIcon}><WalletCards color={colors.primary} size={21} /></View><View style={styles.dashboardText}><Text style={styles.cardTitle}>Kolik můžete utratit tento týden</Text><Text style={styles.bodyText}>Přibližně {money(dashboard.weeklyAllowance, budget?.currency ?? 'CZK')}, aby rozpočet vystačil do konce období.</Text></View></View> : null}
       {budget?.categories.length ? <View style={styles.chartCard}>
         <Text style={styles.cardTitle}>Výdaje podle kategorií</Text>
@@ -269,20 +288,6 @@ export function NativeHomeScreen({ name, onSelect, onAddToShopping, onOpenReceip
           </View> : shopping && shopping.remaining > 0 ? <View style={styles.emptyCard}><Text style={styles.cardTitle}>Akce k vašim položkám</Text><Text style={styles.bodyText}>Na seznamu teď nemáte žádnou položku v akci.</Text><Pressable accessibilityRole="button" onPress={() => onSelect('deals')}><Text style={styles.chatLinkText}>Procházet všechny akce →</Text></Pressable></View> : null}
         </View> : null}
       </View> : null}
-      <Text style={styles.sectionHeading}>Rychlé akce</Text>
-      <View style={styles.quickActions}>
-        {[
-          { label: 'Do nákupu', Icon: Plus, action: () => onSelect('shopping') },
-          { label: 'Výdaj', Icon: WalletCards, action: onQuickExpense },
-          { label: 'Účtenka', Icon: ReceiptText, action: () => onOpenReceipts() },
-          { label: 'Obchody', Icon: MapPin, action: () => onSelect('stores') },
-        ].map(({ label, Icon, action }) => (
-          <Pressable accessibilityRole="button" accessibilityLabel={label} key={label} onPress={action} style={styles.quickAction}>
-            <Icon color={colors.primary} size={21} />
-            <Text style={styles.quickActionLabel}>{label}</Text>
-          </Pressable>
-        ))}
-      </View>
     </ScrollView>
   )
 }

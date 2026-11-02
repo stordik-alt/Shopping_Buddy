@@ -50,6 +50,22 @@ describe('PATCH /api/mobile/shopping-list/[itemId]', () => {
     expect(updateShoppingItemForHousehold).toHaveBeenCalledWith('household-1', 'item-1', { quantity: 1.5, unit: 'kg' })
   })
 
+  it('updates the full item metadata available in the PWA detail', async () => {
+    const response = await PATCH(request({
+      category: 'Drogerie',
+      priority: 'Vysoká',
+      note: 'Bez parfému',
+      store: 'Lidl',
+    }), context)
+    expect(response.status).toBe(200)
+    expect(updateShoppingItemForHousehold).toHaveBeenCalledWith('household-1', 'item-1', {
+      category: 'Drogerie',
+      priority: 'Vysoká',
+      note: 'Bez parfému',
+      store: 'Lidl',
+    })
+  })
+
   it('rejects unsupported input and does not report a write as successful', async () => {
     const response = await PATCH(request({ unit: 'tuna' }), context)
     expect(response.status).toBe(400)

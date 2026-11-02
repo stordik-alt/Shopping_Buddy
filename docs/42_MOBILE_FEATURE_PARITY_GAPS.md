@@ -5,6 +5,56 @@
 **Kontrolovaný commit:** `4d63cea1078c85b8b32df298cd62103f681b35ce`  
 **Rozsah:** porovnání uživatelských funkcí PWA s obrazovkami a mobilním API v `apps/mobile`. Jde o kontrolu zdrojového kódu, ne o vizuální test každé funkce na telefonu.
 
+## Aktuální end-to-end audit — 2026-11-02
+
+Tato část je novější než tabulky níže a zachycuje skutečný průchod PWA a nativní Android aplikace. Původní tabulky ponechávám jako historii auditu z 2026-10-24; některé v nich uvedené mezery už byly mezitím doplněny.
+
+### Prostředí a rozsah
+
+- Checkout: `4076ad703eec` (`main`) s rozpracovanými mobilními změnami, které audit nepřepisoval.
+- PWA: Next.js 16.4.2 na `http://localhost:3000` nad izolovanou databází `shopping_buddy_test`.
+- Playwright: scénář `e2e/smoke.spec.ts` prošel (`2 passed`) s prodlouženým limitem 240 s; prošel registrací, ověřením testovacím fixture, přihlášením, průvodcem a hlavními sekcemi.
+- Android: AVD `ANITKA_API35`, Android 15, x86_64, aplikace `cz.shoppingbuddy.mobile`; build byl vytvořen příkazem `./gradlew assembleDebug -PreactNativeArchitectures=x86_64`.
+- Nativní API bylo přes `adb reverse tcp:3000 tcp:3000` připojené na lokální backend. Pro lokální auth musí být použit origin `http://localhost:3000`; `http://127.0.0.1:3000` vrací `403 INVALID_ORIGIN`.
+- Byl projit účet `mobile.audit.20261102@example.com` v domácnosti „Vizuální domácnost“ s třemi položkami seznamu, jednou položkou zásob a jedním výdajem.
+- Ověřené obrazovky v obou motivech: Domů, Nákupní seznam, Účtenky, Zásoby, Rozpočet, Plán, Akce, Obchody, Recepty, Jídelníček, Profil, chat a tři kroky průvodce.
+
+### Uložené důkazy a stav
+
+- PWA snímky: `test-results/mobile-parity/pwa/` — 30 snímků (15 obrazovek × světlý/tmavý motiv).
+- Android snímky: `test-results/mobile-parity/native/light/` a `test-results/mobile-parity/native/dark/` — 30 snímků.
+- Párové snímky a kontaktní listy: `test-results/mobile-parity/comparison/` — 30 párů a dva kontaktní listy.
+- Responzivní PWA sada: `test-results/mobile-ui-v2/` — 40 snímků ve více šířkách a motivech.
+- Playwright stav přihlášeného účtu: `test-results/mobile-audit/pwa/storage-state.json`. Jde o lokální testovací artefakt, ne o soubor k verzování.
+- Android stav zůstává v zastaveném kontejneru `anitka-avd-session`; databázový kontejner je `anitka-pg`. Oba lze znovu spustit příkazem `docker start`.
+
+### Co v Android aplikaci chybí nebo se chová odlišně
+
+| Priorita | Oblast | Zjištění | PWA jako referenční chování | Android jako místo opravy |
+|---|---|---|---|---|
+| Opraveno 2026-11-02 | Zásoby — prázdný obsah | Akce v hlavičce se snažily zůstat v jednom neflexibilním řádku; text „Zařadit automaticky“ se zlomil do vysokého bloku a odsunul místa i položky mimo obrazovku. Hlavička je nyní dvouřádková, akce se zalamují a místa používají responzivní mřížku. Ověřeno na Android emulátoru: zobrazí se šest míst, počty a položka Rýže. | Zobrazí místa s počty a kartu položky Rýže s ovládáním množství. | `apps/mobile/components/pantry-screen.tsx`. |
+| Opraveno 2026-11-02 | Nákupní seznam — zobrazení | Přidány filtry textu a kategorie, skrytí hotových položek, řazení podle názvu/priority, seskupení podle kategorie/obchodu a uložení volby v zařízení. Přidán přepínač „Nechat displej svítit“. | `components/shopping/shopping-list.tsx`, `lib/list-view-preference.ts` a wake lock v PWA. | `apps/mobile/app/index.tsx`, `apps/mobile/lib/shopping-list-view.ts`; pokryto unit testy. |
+| Opraveno 2026-11-02 | Domů — pořadí a viditelnost akcí | Rychlé akce jsou nyní hned po rozpočtu a nákupním seznamu, tedy na první obrazovce. Rozpočtová karta nově zobrazuje i doporučenou denní částku a počet dní do konce období jako PWA. | BudgetHero, nákupní seznam a rychlé akce v PWA. | `NativeHomeScreen` v `apps/mobile/components/native-parity-screens.tsx`. |
+| Opraveno 2026-11-02 | Zásoby — přehled a filtrování | Místa používají responzivní mřížku se šesti položkami. Přidán filtr podkategorie a přepínač zobrazení/skrytí spotřebovaných položek. | `components/shopping/pantry.tsx`. | `PantryScreen`. |
+| Opraveno 2026-11-02 | Nákup — úpravy položky | Editor nyní mění kategorii, preferovaný obchod, prioritu, poznámku, množství i jednotku. Metadata se ukládají offline frontou a mobilní route validuje povolená pole. | Detail/editace položky seznamu v PWA. | `apps/mobile/app/index.tsx`, `apps/mobile/lib/shopping-list-api.ts`, `apps/mobile/lib/offline-shopping-list.ts`, `app/api/mobile/shopping-list/[itemId]/route.ts`. |
+| Nižší | Vizuální kompatibilita obrazovek | PWA používá měkké karty, taby a zaoblenou spodní navigaci; Android místy používá plnohodnotnou nativní lištu a plošší seznamy. Nativní prvky jsou v pořádku, ale rozestupy, okraje a výška obsahu se liší. | Mobilní breakpointy PWA a `docs/14_MOBILE_UI_V2_SPEC.md`. | Styly nativních obrazovek; sjednotit prostor nad spodní navigací a výšky karet. |
+
+### Co bylo na Androidu ověřeno jako funkčně přítomné
+
+- Recepty už obsahují hledání, zdroje, oblíbené, nedávné, doporučení podle zásob, porce, výběr surovin a ocenění.
+- Jídelníček obsahuje vytvoření plánu, změnu porcí a označení jídla jako uvařeného.
+- Účtenky obsahují nahrání/import, kontrolu OCR i návrhy odškrtnutí nákupního seznamu.
+- Rozpočet obsahuje přehled, výdaje, plán, pravidelné platby, srovnání, projekci, úspory, kapsy i uzavření období.
+- Profil obsahuje domácnost, členy, děti, pozvánky, stravovací preference, nastavení zásob a vzhledu.
+- AI chat je dostupný, ale stejně jako v PWA oznamuje, že AI asistent zatím není připojený.
+
+### Omezení tohoto průchodu
+
+- Snímky Androidu vznikaly na softwarově virtualizovaném emulátoru. První spuštění bylo výrazně pomalejší než PWA a některé obrazovky bylo nutné přetáčet po dokončení asynchronního načtení.
+- PWA smoke scénář používá vlastní dočasný účet. Pro Android byl použit samostatný vizuální fixture účet; vizuální srovnání proto ověřuje především layout, texty a stavy, zatímco některé údaje vázané na účet se mohou lišit.
+- V lokální testovací databázi se v části seznamu obchodů objevila fixture jména typu `test-user1`; tento záznam je datová anomálie testovací databáze, nikoli potvrzená funkční mezera Android aplikace.
+- Kamera, skutečné OCR volání, push notifikace, externí odkazy, offline přechod v režimu letadlo a obnova po restartu zařízení nebyly v této lehké části auditu znovu prováděny.
+
 ## Výsledek implementace PR #622 (2026-10-25)
 
 Auditní tabulka níže zachycuje původní stav před implementací. Funkční mezery v ní uvedené jsou doplněné; její zjištění proto nepředstavují aktuálně chybějící funkce.

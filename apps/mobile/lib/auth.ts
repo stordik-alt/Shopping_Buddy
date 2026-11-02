@@ -13,6 +13,10 @@ const TOKEN_KEY = 'anitka.auth.jwt'
 // Report handled auth failures explicitly: Observe does not automatically collect caught exceptions.
 // Only fixed stage/reason labels are sent; never include credentials, tokens, cookies, or user identifiers.
 function reportAuthDiagnostic(stage: string, reason: string, status?: number): void {
+  console.error(
+    `[ANITKA auth diagnostic] stage=${stage}; reason=${reason}${status ? `; status=${status}` : ''}`
+  )
+
   try {
     const statusLabel = status && Number.isInteger(status) && status >= 100 && status <= 599 ? `; status=${status}` : ''
     Observe.reportError(new Error(`ANITKA auth diagnostic: stage=${stage}; reason=${reason}${statusLabel}`))
@@ -93,36 +97,79 @@ function mergeCookies(existing: string, updates: string[]): string {
   return [...cookies].map(([name, value]) => `${name}=${value}`).join('; ')
 }
 
+
 function getAuthClient() {
   const localAuth = usesLocalAuth()
-  traceLocalAuth('Creating auth client.')
-  const client = createAuthClient(`${getApiUrl()}/api/auth`, {
+  const baseUrl = `${getApiUrl()}/api/auth`
+
+  console.info('[mobile auth] Client configuration', {
+    baseUrl,
+    localAuth,
+    credentials: 'include',
+  })
+
+  const client = createAuthClient(baseUrl, {
     adapter: BetterAuthVanillaAdapter({
-      // NeonAuthAdapterCore replaces customFetchImpl internally, so transport settings must use its
-      // supported fetch options. The local API requires this trusted origin and React Native's cookie jar.
       fetchOptions: {
-        credentials: localAuth ? 'include' : 'omit',
+        // React Native's fetch implementation does not reliably honor omit; include native cookie credentials.
+        // onRequest also supplies the SecureStore copy for deterministic session handling.
+        credentials: 'include',
         headers: { origin: getApiUrl() },
         onRequest: async (request) => {
-          traceLocalAuth('Auth request started.')
+          const url = new URL(request.url)
+          console.info('[mobile auth] HTTP request', {
+            method: request.method,
+            path: url.pathname,
+          })
+
           const cookie = await readCookie()
+          const cookieNames = cookie
+            .split(';')
+            .map((entry) => entry.slice(0, entry.indexOf('=')).trim())
+            .filter(Boolean)
+
+          console.info('[mobile auth] Cookie diagnostics', {
+            path: new URL(request.url).pathname,
+            storedCookieNames: cookieNames,
+            storedCookieCount: cookieNames.length,
+          })
+
           if (cookie) request.headers.set('cookie', cookie)
         },
+
         onSuccess: async ({ response }) => {
-          traceLocalAuth('Auth response succeeded; persisting session data.')
           const cookie = await readCookie()
           const updates = setCookieHeaders(response.headers)
-          if (updates.length > 0) await writeCookie(mergeCookies(cookie, updates))
-          const token = response.headers.get('set-auth-jwt')
-          if (token) await writeToken(token)
-          traceLocalAuth('Auth response session data persisted.')
+          const authJwt = response.headers.get('set-auth-jwt')
+
+          console.info('[mobile auth] Session response diagnostics', {
+            status: response.status,
+            hasSetAuthJwt: Boolean(authJwt),
+            setCookieCount: updates.length,
+            existingCookiePresent: Boolean(cookie),
+          })
+
+          if (updates.length > 0) {
+            await writeCookie(mergeCookies(cookie, updates))
+          }
+          if (authJwt) {
+            await writeToken(authJwt)
+          }
+
+          console.info('[mobile auth] Session persistence diagnostics', {
+            cookieStored: Boolean(await readCookie()),
+            tokenStored: Boolean(await readToken()),
+          })
+},
+
         },
       },
-    }),
+    ),
   })
-  traceLocalAuth('Auth client created.')
+
   return client
 }
+
 
 type SessionResponse = {
   data?: { session?: { token?: string } | null } | null
@@ -142,8 +189,13 @@ export async function getAccessToken(): Promise<string | null> {
       const result = (await getAuthClient().token()) as NeonTokenResponse
       const savedToken = await readToken()
       if (result.error) {
+        if (errorStatus(result.error) === 401) {
+          await writeCookie('')
+          await writeToken('')
+          return null
+        }
         if (isJwt(savedToken)) return savedToken
-        reportAuthDiagnostic('token-response', 'provider_error')
+        reportAuthDiagnostic('token-response', 'provider_error', errorStatus(result.error))
         throw new Error(result.error.message || 'Nepodařilo se ověřit přihlášení.')
       }
 
@@ -156,6 +208,15 @@ export async function getAccessToken(): Promise<string | null> {
       reportAuthDiagnostic('token-response', 'jwt_missing_or_invalid')
       return null
     } catch (error) {
+      if (errorStatus(error) === 401) {
+        await writeCookie('')
+        await writeToken('')
+        return null
+      }
+      console.error('[mobile auth] Token request failure details', {
+        name: errorKind(error),
+        status: errorStatus(error) ?? null,
+      })
       const savedToken = await readToken()
       if (isJwt(savedToken)) return savedToken
       reportAuthDiagnostic('token-request', errorKind(error))
@@ -177,6 +238,11 @@ export async function getAccessToken(): Promise<string | null> {
     const savedToken = await readToken()
     if (result.error) {
       localSessionAvailable = false
+      if (errorStatus(result.error) === 401) {
+        await writeCookie('')
+        await writeToken('')
+        return null
+      }
       if (isJwt(savedToken)) return savedToken
       throw new Error(result.error.message || 'Nepodařilo se ověřit přihlášení.')
     }
@@ -188,6 +254,12 @@ export async function getAccessToken(): Promise<string | null> {
       return sessionToken
     }
   } catch (error) {
+    if (errorStatus(error) === 401) {
+      localSessionAvailable = false
+      await writeCookie('')
+      await writeToken('')
+      return null
+    }
     if (usesLocalAuth()) console.error('[mobile auth] Session lookup failed in local-auth mode.', error)
     localSessionAvailable = false
     const savedToken = await readToken()

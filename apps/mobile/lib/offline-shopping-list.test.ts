@@ -54,6 +54,17 @@ describe('offline shopping list', () => {
     ])
   })
 
+  it('keeps shopping item metadata in an offline update', () => {
+    const operations = enqueueOfflineOperation([], {
+      kind: 'update',
+      itemId: 'milk',
+      changes: { category: 'Potraviny', priority: 'Vysoká', store: 'Lidl', note: 'Bez laktózy' },
+    })
+    expect(applyOfflineOperations(snapshot().list.items, operations)).toEqual([
+      item('milk', { category: 'Potraviny', priority: 'Vysoká', store: 'Lidl', note: 'Bez laktózy', pending: true }),
+    ])
+  })
+
   it('rejects corrupted snapshots and snapshots belonging to another user or household', () => {
     const serialized = JSON.stringify(snapshot())
     expect(parseOfflineSnapshot(serialized, 'user-2', 'household-1')).toBeNull()

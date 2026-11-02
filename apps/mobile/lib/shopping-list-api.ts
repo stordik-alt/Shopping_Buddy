@@ -129,6 +129,10 @@ export type MobileBudgetPlanning = {
   period: { start: string; end: string; next: string }
   currency: string
   budget: number
+  defaultBudget: number
+  periodBudgets: Record<string, number>
+  savingsGoal: number
+  canSetDefault: boolean
   incomes: MobileBudgetIncome[]
   plannedExpenses: MobilePlannedExpense[]
 }
@@ -716,6 +720,17 @@ export function deleteExpense(expenseId: string) {
 export function getBudgetPlanning(period?: string) {
   const query = period ? `?period=${encodeURIComponent(period)}` : ''
   return request<MobileBudgetPlanning>(`/api/mobile/budget/planning${query}`)
+}
+
+export function updateBudgetPlan(input: {
+  defaultBudget?: number
+  periodBudgets?: { period: string; amount: number | null }[]
+  savingsGoal?: number
+}) {
+  return request<Pick<MobileBudgetPlanning, 'budget' | 'defaultBudget' | 'periodBudgets' | 'savingsGoal' | 'canSetDefault' | 'period'>>(
+    '/api/mobile/budget/planning',
+    { method: 'PATCH', body: JSON.stringify(input) },
+  )
 }
 
 export function addBudgetIncome(input: { amount: number; description: string; date: string; status: 'planned' | 'actual' }) {

@@ -42,8 +42,9 @@
 - Odkazy z Domů otevírají přesný cíl: dnešní jídlo se v Jídelníčku zvýrazní a odscrolluje, položka seznamu z upozornění na končící akci otevře přímo svůj editor. Obecné odkazy zůstávají beze změny.
 - Nákupní seznam umí odstranit jednotlivou položku potvrzeným DELETE požadavkem. Odstranění prochází offline frontou, zruší i nesynchronizované lokální přidání a po obnovení připojení se bezpečně přehraje.
 - Každý řádek nákupního seznamu nabízí „Najít“ a otevře produktové vyhledávání už navázané na danou položku s předvyplněným názvem. Výběr produktu se tak ukládá pro správný řádek a řetězec.
-- Po odstranění položky zůstává sedm sekund dostupné „Vrátit zpět“. Obnovení znovu vytvoří položku se množstvím, jednotkou, kategorií, produktem, poznámkou, obchodem, prioritou, druhy zboží i stavem dokončení.
+- Po odstranění položky zůstává sedm sekund dostupné „Vrátit zpět“. DELETE se do vypršení okna neposílá, takže zrušení zachová původní ID, připnutí produktů k řetězcům a všechny metadata; ostatní změny se mezitím synchronizují bez odeslání odloženého smazání.
 - Plán rozpočtu umožňuje přecházet mezi aktuálním a dalšími obdobími. Budoucí období načítá vlastní příjmy a plánované výdaje, nové položky ukládá k prvnímu dni období a skrývá Kapsy, pravidelné příjmy, uzávěrku a historii aktuálního období.
+- Poslední vizuální průchod srovnal kartu nákupního seznamu na Domů s PWA pomocí progresu dokončení. Recepty schovaly zdroje, řazení a filtr domácnosti pod „Další filtry“, takže výchozí obrazovka odpovídá kratšímu rozložení PWA.
 - Upozornění „Dnes je důležité“ jsou seskupená do jedné karty. Sekce Profilu a filtry receptů se zalamují, takže se na 390 px neztrácí poslední volby mimo vodorovný viewport.
 - Recepty doplňují rychlé filtry PWA. Klepnutí na „Rychlé“, „Večeře“, „Oběd“, „Polévky“, „Maso“, „Těstoviny“, „Dezerty“ nebo „Bezmasé“ nastaví dotaz a rovnou spustí hledání.
 - Obchody umí použít foreground polohu zařízení, hledat řetězce v okruhu 5 km, zobrazit vzdálenost prodejen a vrátit se k ručnímu zadání města. Mobilní API validuje souřadnice a GPS výsledky se záměrně necachují; bez lokality se zobrazí výchozí dotaz jako v PWA.

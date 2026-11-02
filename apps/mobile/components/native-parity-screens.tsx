@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { ArrowDown, ArrowRight, ArrowUp, Bell, ChevronDown, CookingPot, House, LocateFixed, MapPin, MoreHorizontal, Package, Pencil, PiggyBank, Plus, Repeat, ReceiptText, Search, ShoppingBag, ShoppingCart, Sparkles, Star, Store, Tag, Trash2, TrendingUp, Users, WalletCards, X } from 'lucide-react-native'
 import * as SecureStore from 'expo-secure-store'
@@ -835,6 +835,53 @@ function NativeDevicePushSetting({ onAuthExpired }: { onAuthExpired: () => void 
   </View>
 }
 
+function NativeProfileAccordion({
+  title,
+  summary,
+  icon,
+  defaultOpen = false,
+  open,
+  onOpenChange,
+  children,
+}: {
+  title: string
+  summary: string
+  icon: ReactNode
+  defaultOpen?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  children: ReactNode
+}) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
+  const [internalOpen, setInternalOpen] = useState(defaultOpen)
+  const expanded = open ?? internalOpen
+
+  function toggle() {
+    const next = !expanded
+    if (open == null) setInternalOpen(next)
+    onOpenChange?.(next)
+  }
+
+  return <View style={styles.profileAccordion}>
+    <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={toggle} style={styles.profileAccordionHeader}>
+      <View style={styles.profileAccordionIcon}>{icon}</View>
+      <View style={styles.preferenceDescription}>
+        <Text style={styles.cardTitle}>{title}</Text>
+        {summary && !expanded ? <Text style={styles.noteText}>{summary}</Text> : null}
+      </View>
+      <ChevronDown color={colors.mutedText} size={20} style={expanded ? { transform: [{ rotate: '180deg' }] } : undefined} />
+    </Pressable>
+    <View
+      accessibilityElementsHidden={!expanded}
+      importantForAccessibility={expanded ? 'auto' : 'no-hide-descendants'}
+      style={[styles.profileAccordionPanel, !expanded && styles.profileAccordionPanelHidden]}
+    >
+      {children}
+    </View>
+  </View>
+}
+
 export function NativeProfileScreen({ name, email, householdRole, householdName, householdBudget, householdCurrency, profile, onUpdateHousehold, onProfileUpdate, onAuthExpired, onSignOut, onReload, onOpenGuide, guideStepId }: {
   name: string
   email: string
@@ -878,6 +925,7 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null)
   const [preferencesError, setPreferencesError] = useState<string | null>(null)
   const [profileSection, setProfileSection] = useState<'household' | 'shopping' | 'pantry' | 'appearance' | 'notifications'>('household')
+  const [householdSettingsOpen, setHouseholdSettingsOpen] = useState(false)
   const householdNameGuideTarget = useNativeGuideTarget('profile-household-name')
 
   useEffect(() => {
@@ -886,6 +934,7 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
         : guideStepId === 'profile-notifications' ? 'notifications'
           : guideStepId?.startsWith('profile-') || guideStepId === 'profile' ? 'household' : null
     if (guideSection) setProfileSection(guideSection)
+    if (guideStepId === 'profile-household-name') setHouseholdSettingsOpen(true)
   }, [guideStepId])
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileBusy, setProfileBusy] = useState(false)
@@ -1356,7 +1405,7 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
 
   const sections = [
     ['household', 'Domácnost'],
-    ['shopping', 'Nákup'],
+    ['shopping', 'Nákup a obchody'],
     ['pantry', 'Zásoby'],
     ['appearance', 'Vzhled'],
     ['notifications', 'Upozornění'],
@@ -1374,8 +1423,14 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
     </View>
 
     {profileSection === 'household' ? <>
-      <View style={styles.preferenceCard}>
-        <Text style={styles.cardEyebrow}>DOMÁCNOST</Text><Text style={styles.cardTitle}>{householdName || 'Sdílená domácnost'}</Text>
+      <NativeProfileAccordion
+        title="Nastavení domácnosti"
+        summary={`${householdName || 'Sdílená domácnost'} · ${householdRole === 'owner' ? 'správce' : householdRole ? 'člen' : 'nepřipojeno'}`}
+        icon={<House color={colors.accentText} size={20} />}
+        open={householdSettingsOpen}
+        onOpenChange={setHouseholdSettingsOpen}
+      >
+      <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
         <Text style={styles.bodyText}>{householdRole ? `Vaše role: ${householdRole === 'owner' ? 'správce' : 'člen'}` : 'Účet zatím není připojený k domácnosti.'}</Text>
         {householdRole === 'owner' ? <>
           <Text style={styles.profileFieldLabel}>Název domácnosti</Text>
@@ -1387,9 +1442,15 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
           <Pressable accessibilityRole="button" disabled={saving} onPress={() => void saveHousehold()} style={[styles.profileSaveButton, saving && styles.disabled]}><Text style={styles.profileSaveText}>{saving ? 'Ukládám…' : 'Uložit nastavení'}</Text></Pressable>
         </> : null}
       </View>
+      </NativeProfileAccordion>
       {profile ? <>
-        <View style={styles.preferenceCard}>
-          <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>Členové domácnosti</Text><Text style={styles.noteText}>Profil pomáhá přizpůsobit nákupy a jídelníček.</Text></View><Pressable accessibilityRole="button" onPress={() => setMemberFormOpen((open) => !open)} style={styles.inlineAction}><Text style={styles.inlineActionText}>{memberFormOpen ? 'Zavřít' : '+ Přidat'}</Text></Pressable></View>
+        <NativeProfileAccordion
+          title="Členové domácnosti"
+          summary={profile.members.map((member) => member.name).join(', ') || 'Zatím nikdo'}
+          icon={<Users color={colors.accentText} size={20} />}
+        >
+        <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
+          <View style={styles.sectionHeader}><Text style={[styles.bodyText, styles.flexText]}>Profil pomáhá přizpůsobit nákupy a jídelníček.</Text><Pressable accessibilityRole="button" onPress={() => setMemberFormOpen((open) => !open)} style={styles.inlineAction}><Text style={styles.inlineActionText}>{memberFormOpen ? 'Zavřít' : '+ Přidat'}</Text></Pressable></View>
           {profile.members.map((member) => <View key={member.id} style={styles.memberCard}>
             <View style={styles.sectionHeader}><View style={styles.memberAvatar}><Text style={styles.memberAvatarText}>{member.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</Text></View><View style={styles.memberInfo}><Text style={styles.cardTitle}>{member.name}</Text><Text style={styles.noteText}>{member.role === 'owner' ? 'Správce' : 'Člen'} · {member.age} let</Text></View>{member.removable ? <Pressable accessibilityLabel={`Odebrat člena ${member.name}`} accessibilityRole="button" disabled={profileBusy} onPress={() => deleteMember(member)} style={styles.removeIconButton}><Text style={styles.removeIconText}>×</Text></Pressable> : null}</View>
             {member.favoriteFoods.length || member.dislikedFoods.length || member.allergies.length ? <Text style={styles.noteText}>{[...member.favoriteFoods.map((value) => `Oblíbené: ${value}`), ...member.dislikedFoods.map((value) => `Nechce: ${value}`), ...member.allergies.map((value) => `Alergie: ${value}`)].join(' · ')}</Text> : null}
@@ -1405,8 +1466,14 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
             <Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void createMember()} style={[styles.profileSaveButton, profileBusy && styles.disabled]}><Text style={styles.profileSaveText}>{profileBusy ? 'Ukládám…' : 'Přidat člena domácnosti'}</Text></Pressable>
           </View> : null}
         </View>
-        <View style={styles.preferenceCard}>
-          <View style={styles.sectionHeader}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>Děti</Text><Text style={styles.noteText}>Preference a zvláštní potřeby pro plánování nákupů.</Text></View><Pressable accessibilityRole="button" onPress={() => setChildFormOpen((open) => !open)} style={styles.inlineAction}><Text style={styles.inlineActionText}>{childFormOpen ? 'Zavřít' : '+ Přidat'}</Text></Pressable></View>
+        </NativeProfileAccordion>
+        <NativeProfileAccordion
+          title="Děti"
+          summary={profile.children.map((child) => child.name).join(', ') || 'Zatím žádné dítě'}
+          icon={<Sparkles color={colors.accentText} size={20} />}
+        >
+        <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
+          <View style={styles.sectionHeader}><Text style={[styles.bodyText, styles.flexText]}>Preference a zvláštní potřeby pro plánování nákupů.</Text><Pressable accessibilityRole="button" onPress={() => setChildFormOpen((open) => !open)} style={styles.inlineAction}><Text style={styles.inlineActionText}>{childFormOpen ? 'Zavřít' : '+ Přidat'}</Text></Pressable></View>
           {profile.children.map((child) => <View key={child.id} style={styles.memberCard}><View style={styles.sectionHeader}><View style={styles.memberInfo}><Text style={styles.cardTitle}>{child.name}</Text><Text style={styles.noteText}>{child.age} let</Text></View><Pressable accessibilityLabel={`Odebrat dítě ${child.name}`} accessibilityRole="button" disabled={profileBusy} onPress={() => deleteChild(child)} style={styles.removeIconButton}><Text style={styles.removeIconText}>×</Text></Pressable></View>{child.preferences ? <Text style={styles.noteText}>Preference: {child.preferences}</Text> : null}{child.specialNeeds ? <Text style={styles.childNeeds}>Specifické potřeby: {child.specialNeeds}</Text> : null}</View>)}
           {childFormOpen ? <View style={styles.formPanel}>
             <TextInput accessibilityLabel="Jméno dítěte" onChangeText={setChildName} placeholder="Jméno" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={childName} />
@@ -1416,30 +1483,45 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
             <Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void createChild()} style={[styles.profileSaveButton, profileBusy && styles.disabled]}><Text style={styles.profileSaveText}>{profileBusy ? 'Ukládám…' : 'Přidat dítě'}</Text></Pressable>
           </View> : null}
         </View>
+        </NativeProfileAccordion>
       </> : <View style={styles.emptyCard}><Text style={styles.cardTitle}>Profil domácnosti se nepodařilo načíst</Text><Text style={styles.bodyText}>Obnovte účet nebo zkuste načíst profil znovu.</Text></View>}
-      {householdRole === 'owner' ? <View style={styles.preferenceCard}>
-        <Text style={styles.cardEyebrow}>ČLENSTVÍ V DOMÁCNOSTI</Text><Text style={styles.cardTitle}>Pozvat člena</Text><Text style={styles.bodyText}>Pozvánka platí 7 dní. Odkaz můžete poslat přes systémové sdílení telefonu.</Text>
+      {householdRole === 'owner' ? <NativeProfileAccordion
+        title="Pozvat člena"
+        summary={invitations.length > 0 ? `Čeká ${invitations.length} pozvánek` : 'Pozvánka platí 7 dní'}
+        icon={<Plus color={colors.accentText} size={20} />}
+      >
+      <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
+        <Text style={styles.bodyText}>Pozvánka platí 7 dní. Odkaz můžete poslat přes systémové sdílení telefonu.</Text>
         <View style={styles.rowFields}><TextInput accessibilityLabel="E-mail člena domácnosti" autoCapitalize="none" keyboardType="email-address" onChangeText={setInviteEmail} onSubmitEditing={() => void sendHouseholdInvite()} placeholder="email@rodina.cz" placeholderTextColor={colors.mutedText} style={[styles.profileInput, styles.flexInput]} value={inviteEmail} /><Pressable accessibilityRole="button" disabled={inviteBusy} onPress={() => void sendHouseholdInvite()} style={[styles.inlineAction, inviteBusy && styles.disabled]}><Text style={styles.inlineActionText}>{inviteBusy ? 'Vytvářím…' : 'Pozvat'}</Text></Pressable></View>
         {inviteUrl ? <Pressable accessibilityRole="button" onPress={() => void shareHouseholdInvite()} style={styles.secondaryAction}><Text style={styles.secondaryActionText}>Sdílet pozvánku</Text></Pressable> : null}
         {invitations.map((invitation) => <View key={invitation.id} style={styles.pantrySettingRow}><View style={styles.preferenceDescription}><Text style={styles.bodyText}>{invitation.email}</Text><Text style={styles.noteText}>Pozvánka čeká · platí do {new Date(invitation.expiresAt).toLocaleDateString('cs-CZ')}</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Zrušit pozvánku pro ${invitation.email}`} disabled={inviteBusy} onPress={() => void revokeInvitation(invitation)} style={styles.removeIconButton}><Text style={styles.removeIconText}>×</Text></Pressable></View>)}
         {inviteError ? <Text accessibilityRole="alert" style={styles.error}>{inviteError}</Text> : null}
-      </View> : invitations.length > 0 ? <View style={styles.preferenceCard}><Text style={styles.cardTitle}>Čekající pozvánky</Text>{invitations.map((invitation) => <Text key={invitation.id} style={styles.bodyText}>{invitation.email} · platí do {new Date(invitation.expiresAt).toLocaleDateString('cs-CZ')}</Text>)}</View> : null}
-      {householdRole === 'owner' ? <View style={styles.preferenceCard}>
-        <Text style={styles.cardEyebrow}>DOMÁCNOST</Text><Text style={styles.cardTitle}>Historie změn</Text><Text style={styles.bodyText}>Kdo upravil rozpočet, výdaje, příjmy a členy domácnosti.</Text>
+      </View>
+      </NativeProfileAccordion> : invitations.length > 0 ? <NativeProfileAccordion title="Čekající pozvánky" summary={`${invitations.length} čeká na přijetí`} icon={<Users color={colors.accentText} size={20} />}><View style={[styles.preferenceCard, styles.profileAccordionCard]}>{invitations.map((invitation) => <Text key={invitation.id} style={styles.bodyText}>{invitation.email} · platí do {new Date(invitation.expiresAt).toLocaleDateString('cs-CZ')}</Text>)}</View></NativeProfileAccordion> : null}
+      {householdRole === 'owner' ? <NativeProfileAccordion title="Historie změn" summary="Kdo změnil rozpočet, výdaje, příjmy a členy" icon={<ReceiptText color={colors.accentText} size={20} />}>
+      <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
+        <Text style={styles.bodyText}>Kdo upravil rozpočet, výdaje, příjmy a členy domácnosti.</Text>
         {auditEntries === null ? <Pressable accessibilityRole="button" disabled={auditLoading} onPress={() => void loadAuditLog()} style={[styles.secondaryAction, auditLoading && styles.disabled]}><Text style={styles.secondaryActionText}>{auditLoading ? 'Načítám historii…' : 'Zobrazit historii'}</Text></Pressable> : auditEntries.length === 0 ? <Text style={styles.noteText}>Zatím tu není žádná zaznamenaná změna. Historie se uchovává jeden rok.</Text> : auditEntries.map((entry) => <View key={entry.id} style={styles.auditRow}><Text style={styles.bodyText}>{entry.actor ?? 'Bývalý člen'} · {auditLabel(entry.action)}</Text><Text style={styles.noteText}>{new Date(entry.createdAt).toLocaleString('cs-CZ')}{auditDetailText(entry.detail) ? ` · ${auditDetailText(entry.detail)}` : ''}</Text></View>)}
         {auditError ? <Text accessibilityRole="alert" style={styles.error}>{auditError}</Text> : null}
-      </View> : null}
-      {householdRole === 'owner' ? <View style={styles.preferenceCard}>
-        <Text style={styles.cardEyebrow}>DOMÁCNOST</Text><Text style={styles.cardTitle}>Smazání dat</Text>
+      </View>
+      </NativeProfileAccordion> : null}
+      {householdRole === 'owner' ? <NativeProfileAccordion title="Smazání dat" summary="Nevratně smaže vybraná data, profil zůstane" icon={<Trash2 color={colors.destructive} size={20} />}>
+      <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
         <Text style={styles.bodyText}>Nevratně smaže vybraná data pro celou domácnost. Profil, členové, preference a nastavení zůstanou.</Text>
         <Pressable accessibilityRole="button" onPress={() => { setResetGroups([]); setResetName(''); setResetError(null); setResetOpen(true) }} style={styles.dangerAction}><Text style={styles.dangerActionText}>Smazat data…</Text></Pressable>
-      </View> : null}
+      </View>
+      </NativeProfileAccordion> : null}
       {profileError ? <Text accessibilityRole="alert" style={styles.error}>{profileError}</Text> : null}
     </> : null}
 
     {profileSection === 'shopping' ? <>
-      <View style={styles.preferenceCard}>
-        <Text style={styles.cardEyebrow}>MŮJ NÁKUP · OBCHODY</Text><Text style={styles.cardTitle}>Moje obchody v okolí</Text><Text style={styles.bodyText}>Výběr je osobní. Akce a ceny se přizpůsobí obchodům, kam běžně chodíte.</Text>
+      <NativeProfileAccordion
+        title="Moje obchody v okolí"
+        summary={storeChainIds.length > 0 ? `${storeChainIds.length} vybraných řetězců` : 'Všechny obchody bez omezení'}
+        icon={<Store color={colors.accentText} size={20} />}
+      >
+      <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
+        <Text style={styles.bodyText}>Výběr je osobní. Akce a ceny se přizpůsobí obchodům, kam běžně chodíte.</Text>
         {storeLoading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : <>
           <Text style={styles.profileFieldLabel}>Obchodní řetězce</Text>
           <View style={styles.themeChoices}>{storeChains.map((chain) => {
@@ -1476,8 +1558,14 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
           <Pressable accessibilityRole="button" disabled={storeSaving || storeLoading || !storeSelection} onPress={() => void saveStorePreferences()} style={[styles.profileSaveButton, (storeSaving || storeLoading || !storeSelection) && styles.disabled]}><Text style={styles.profileSaveText}>{storeSaving ? 'Ukládám…' : 'Uložit obchody'}</Text></Pressable>
         </>}
       </View>
-      <View style={styles.preferenceCard}>
-      <Text style={styles.cardEyebrow}>NÁKUP A OBCHODY</Text><Text style={styles.cardTitle}>Nákupní preference domácnosti</Text><Text style={styles.bodyText}>Nastavení pomáhá vybírat produkty, obchody a ceny.</Text>
+      </NativeProfileAccordion>
+      <NativeProfileAccordion
+        title="Nákupní preference domácnosti"
+        summary={profile ? `Počet uložených preferencí: ${profile.preferences.preferredBrands.length + profile.preferences.preferredStores.length + profile.preferences.preferredProducts.length + profile.preferences.excludedProducts.length}` : 'Preference nejsou dostupné'}
+        icon={<Tag color={colors.accentText} size={20} />}
+      >
+      <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
+      <Text style={styles.bodyText}>Nastavení pomáhá vybírat produkty, obchody a ceny.</Text>
       {profile ? <>
         {preferenceFields.map(([key, label, placeholder]) => <View key={key}><Text style={styles.profileFieldLabel}>{label}</Text><TextInput accessibilityLabel={label} onChangeText={(value) => setPreferenceLists((current) => ({ ...current, [key]: value }))} placeholder={placeholder} placeholderTextColor={colors.mutedText} style={styles.profileInput} value={preferenceLists[key]} /></View>)}
         <Text style={styles.profileFieldLabel}>Cenová preference</Text><View style={styles.themeChoices}>{([['cheapest', 'Nejlevnější'], ['balanced', 'Vyvážené'], ['quality_first', 'Kvalita především']] as [MobileHouseholdPreferences['priceSensitivity'], string][]).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: priceSensitivity === value }} onPress={() => setPriceSensitivity(value)} style={[styles.themeChoice, priceSensitivity === value && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, priceSensitivity === value && styles.themeChoiceTextSelected]}>{label}</Text></Pressable>)}</View>
@@ -1487,12 +1575,18 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
         <Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void saveShoppingPreferences()} style={[styles.profileSaveButton, profileBusy && styles.disabled]}><Text style={styles.profileSaveText}>{profileBusy ? 'Ukládám…' : 'Uložit nákupní preference'}</Text></Pressable>
       </> : <Text style={styles.bodyText}>Nákupní preference domácnosti nejsou dostupné.</Text>}
       </View>
+      </NativeProfileAccordion>
     </> : null}
 
     {profileSection === 'pantry' ? <>
       {pantryLoading ? <View style={styles.emptyCard}><ActivityIndicator color={colors.primary} /><Text style={styles.bodyText}>Načítám nastavení zásob…</Text></View> : pantryLoadError ? <Text accessibilityRole="alert" style={styles.error}>{pantryLoadError}</Text> : pantrySettings ? <>
-        <View style={styles.preferenceCard}>
-          <Text style={styles.cardEyebrow}>ZÁSOBY · MÍSTA</Text><Text style={styles.cardTitle}>Vlastní místa</Text><Text style={styles.bodyText}>Přidejte domácí úložná místa nebo upravte výchozí místa.</Text>
+        <NativeProfileAccordion
+          title="Zásoby — vlastní místa"
+          summary={pantrySettings.customPlaces.length > 0 ? `Vlastních míst: ${pantrySettings.customPlaces.length}` : 'Zatím žádná vlastní místa'}
+          icon={<Package color={colors.accentText} size={20} />}
+        >
+        <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
+          <Text style={styles.bodyText}>Přidejte domácí úložná místa nebo upravte výchozí místa.</Text>
           <Text style={styles.profileFieldLabel}>Oblast</Text><View style={styles.themeChoices}>{PANTRY_AREAS.map((area) => <Pressable key={area} accessibilityRole="button" accessibilityState={{ selected: placeArea === area }} onPress={() => setPlaceArea(area)} style={[styles.themeChoice, placeArea === area && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, placeArea === area && styles.themeChoiceTextSelected]}>{area}</Text></Pressable>)}</View>
           <TextInput accessibilityLabel="Název vlastního místa" onChangeText={setPlaceName} placeholder="Např. Sklep nebo kufr auta" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={placeName} />
           <Pressable accessibilityRole="button" disabled={profileBusy || !placeName.trim()} onPress={() => void addPantryPlace()} style={[styles.profileSaveButton, (profileBusy || !placeName.trim()) && styles.disabled]}><Text style={styles.profileSaveText}>Přidat místo</Text></Pressable>
@@ -1513,9 +1607,15 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
             </View>
           })}
         </View>
+        </NativeProfileAccordion>
 
-        <View style={styles.preferenceCard}>
-          <Text style={styles.cardEyebrow}>ZÁSOBY · HLÍDÁNÍ</Text><Text style={styles.cardTitle}>Hlídané zásoby</Text><Text style={styles.bodyText}>Nastavte minimum a maximum podle druhu zboží. Při akci pak aplikace navrhne doplnění do maxima.</Text>
+        <NativeProfileAccordion
+          title="Hlídané zásoby"
+          summary={pantrySettings.stockLevels.length > 0 ? `Hlídaných druhů: ${pantrySettings.stockLevels.length}` : 'Zatím žádné hlídané zásoby'}
+          icon={<Package color={colors.accentText} size={20} />}
+        >
+        <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
+          <Text style={styles.bodyText}>Nastavte minimum a maximum podle druhu zboží. Při akci pak aplikace navrhne doplnění do maxima.</Text>
           {pantrySettings.stockLevels.map((level: MobilePantryStockLevel) => <View key={level.id} style={styles.pantrySettingRow}><Pressable accessibilityRole="button" onPress={() => chooseStockType(level.productTypeKey)} style={styles.preferenceDescription}><Text style={styles.cardTitle}>{level.typeName}</Text><Text style={styles.noteText}>Minimum {level.minQuantity} · maximum {level.maxQuantity} {unitLabel(level.maxQuantity, level.unit)}</Text></Pressable><Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void mutatePantrySettings({ action: 'remove-stock-level', levelId: level.id })} style={styles.removeIconButton}><Text style={styles.removeIconText}>×</Text></Pressable></View>)}
           <Text style={styles.profileFieldLabel}>Druh zboží</Text><TextInput accessibilityLabel="Druh zboží k hlídání" onChangeText={(value) => { setStockTypeQuery(value); setStockTypeKey('') }} placeholder="Např. Máslo nebo Mléko" placeholderTextColor={colors.mutedText} style={styles.profileInput} value={stockTypeQuery} />
           {stockTypeQuery && !stockTypeKey ? <View style={styles.suggestionList}>{PRODUCT_TYPES.filter((type) => type.name.toLocaleLowerCase('cs').includes(stockTypeQuery.toLocaleLowerCase('cs'))).slice(0, 10).map((type) => <Pressable key={type.key} accessibilityRole="button" onPress={() => chooseStockType(type.key)} style={styles.suggestion}><Text style={styles.suggestionText}>{type.name}</Text></Pressable>)}</View> : null}
@@ -1525,9 +1625,15 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
             <Pressable accessibilityRole="button" disabled={profileBusy} onPress={() => void saveStockLevel()} style={[styles.profileSaveButton, profileBusy && styles.disabled]}><Text style={styles.profileSaveText}>Uložit hlídání zásob</Text></Pressable>
           </> : null}
         </View>
+        </NativeProfileAccordion>
 
-        <View style={styles.preferenceCard}>
-          <Text style={styles.cardEyebrow}>ZÁSOBY · KONTROLA</Text><Text style={styles.cardTitle}>Kontrola podle kategorie</Text><Text style={styles.bodyText}>Po kolika dnech se aplikace zeptá, jestli položku ještě máte. Prázdné pole lze uložit jako výchozí hodnotu.</Text>
+        <NativeProfileAccordion
+          title="Kontrola podle kategorie"
+          summary="Termíny, kdy se aplikace zeptá na stav zásob"
+          icon={<Bell color={colors.accentText} size={20} />}
+        >
+        <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
+          <Text style={styles.bodyText}>Po kolika dnech se aplikace zeptá, jestli položku ještě máte. Prázdné pole lze uložit jako výchozí hodnotu.</Text>
           {(Object.keys(CHECKIN_DAYS_BY_CATEGORY) as (keyof typeof CHECKIN_DAYS_BY_CATEGORY)[]).map((category) => {
             const defaults = CHECKIN_DAYS_BY_SUBCATEGORY[category]
             const subcategoryRows = defaults ? subcategoriesOfItem(category).filter((subcategory) => defaults[subcategory] != null) : []
@@ -1536,21 +1642,30 @@ export function NativeProfileScreen({ name, email, householdRole, householdName,
             return <View key={category} style={styles.pantryCheckinGroup}>{defaults ? <Text style={styles.cardEyebrow}>{category.toLocaleUpperCase('cs')}</Text> : null}{rows}</View>
           })}
         </View>
+        </NativeProfileAccordion>
         {profileError ? <Text accessibilityRole="alert" style={styles.error}>{profileError}</Text> : null}
       </> : <View style={styles.emptyCard}><Text style={styles.cardTitle}>Nastavení zásob není dostupné</Text></View>}
     </> : null}
 
-    {profileSection === 'appearance' ? <View style={styles.preferenceCard}>
-      <Text style={styles.cardEyebrow}>VZHLED APLIKACE</Text><Text style={styles.cardTitle}>Barevný režim</Text><Text style={styles.bodyText}>Volba se uloží v zařízení a použije se ve všech nativních obrazovkách a grafech.</Text>
+    {profileSection === 'appearance' ? <NativeProfileAccordion title="Barevný režim" summary="Podle systému, světlý nebo tmavý" icon={<Sparkles color={colors.accentText} size={20} />}>
+    <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
+      <Text style={styles.bodyText}>Volba se uloží v zařízení a použije se ve všech nativních obrazovkách a grafech.</Text>
       <View style={styles.themeChoices}>{([['system', 'Podle systému'], ['light', 'Světlé'], ['dark', 'Tmavé']] as [ThemePreference, string][]).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: preference === value }} onPress={() => setPreference(value)} style={[styles.themeChoice, preference === value && styles.themeChoiceSelected]}><Text style={[styles.themeChoiceText, preference === value && styles.themeChoiceTextSelected]}>{label}</Text></Pressable>)}</View>
-    </View> : null}
+    </View>
+    </NativeProfileAccordion> : null}
 
-    {profileSection === 'notifications' ? <View style={styles.preferenceCard}>
-      <Text style={styles.cardEyebrow}>UPOZORNĚNÍ</Text><Text style={styles.cardTitle}>Co chcete dostávat</Text><Text style={styles.bodyText}>Nastavení platí jen pro váš účet.</Text>
+    {profileSection === 'notifications' ? <NativeProfileAccordion
+      title="Upozornění"
+      summary={preferences.length > 0 ? `Zapnuto ${preferences.filter((item) => item.enabled).length} z ${preferences.length}` : 'Nastavení pro váš účet'}
+      icon={<Bell color={colors.accentText} size={20} />}
+    >
+    <View style={[styles.preferenceCard, styles.profileAccordionCard]}>
+      <Text style={styles.bodyText}>Nastavení platí jen pro váš účet.</Text>
       {preferencesError ? <Text accessibilityRole="alert" style={styles.error}>{preferencesError}</Text> : null}
       {preferences.map((item) => <View key={item.key} style={styles.preferenceRow}><View style={styles.preferenceDescription}><Text style={styles.cardTitle}>{item.label}</Text><Text style={styles.noteText}>{item.description}</Text></View><Switch accessibilityLabel={item.label} value={item.enabled} onValueChange={(enabled) => void togglePreference(item.key, enabled)} trackColor={{ false: colors.border, true: colors.accent }} thumbColor={colors.card} /></View>)}
       <NativeDevicePushSetting onAuthExpired={onAuthExpired} />
-    </View> : null}
+    </View>
+    </NativeProfileAccordion> : null}
     <Pressable accessibilityRole="button" onPress={() => { setDeleteAccountEmail(''); setDeleteAccountError(null); setDeleteAccountOpen(true) }} style={styles.accountDeleteButton}><Text style={styles.accountDeleteText}>Smazat účet…</Text></Pressable>
     <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.signOutButton}><Text style={styles.signOutText}>Odhlásit se</Text></Pressable>
 
@@ -1762,6 +1877,12 @@ function useStyles() {
   disabled: { opacity: 0.45 },
   footerNote: { color: colors.mutedText, fontSize: 11, textAlign: 'center', marginTop: 8 },
   profileCard: { alignItems: 'center', gap: 6, padding: 24, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 20 },
+  profileAccordion: { overflow: 'hidden', backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18 },
+  profileAccordionHeader: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 16, paddingVertical: 12 },
+  profileAccordionIcon: { width: 36, height: 36, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.accentSubtle },
+  profileAccordionPanel: { paddingHorizontal: 16, paddingBottom: 16 },
+  profileAccordionPanelHidden: { display: 'none' },
+  profileAccordionCard: { padding: 0, borderWidth: 0, backgroundColor: 'transparent' },
   profileSections: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 2 },
   profileSectionButton: { minHeight: 39, justifyContent: 'center', paddingHorizontal: 13, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   profileSectionButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },

@@ -3,7 +3,7 @@ import { AppShell } from '@/components/app-shell'
 import { auth } from '@/lib/auth/server'
 import { isAppAdmin } from '@/lib/db/admin'
 import { getHouseholdData } from '@/lib/db/queries'
-import { getProductPricesCached, getStandaloneOffersCached, getStoreChainsCached, getStoresCached } from '@/lib/db/cached-reads'
+import { getProductPricesCached, getStandaloneOffersCached, getStoreChainsCached } from '@/lib/db/cached-reads'
 import { getRestockDismissals, getRestockSuggestionsFor, getStockLevels } from '@/lib/db/restock'
 import { listPinsForHousehold } from '@/lib/db/shopping-plan'
 import { getMemberIdForUser, getMemberStoreSelection } from '@/lib/db/member-store-preferences'
@@ -32,24 +32,27 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
   const chainParam = params[DEALS_CHAIN_PARAM]
   const initialDealsChain = initialTab === 'Akce' && typeof chainParam === 'string' && chainParam.trim() ? chainParam.trim() : null
 
-  const [data, stores, standaloneOffers, storeChains, isAdmin] = await Promise.all([
+  const [data, storeChains, isAdmin] = await Promise.all([
     timer.measure('householdData', () => getHouseholdData(session.user.id, session.user.name, session.user.email, session.user.emailVerified === true, timer)),
-    // Global data (the same for every household) comes from a 15-minute cache (lib/db/cached-reads.ts).
-    timer.measure('stores', () => getStoresCached()),
-    timer.measure('standaloneOffers', () => getStandaloneOffersCached()),
+    // Chain names come from the shared cache. The 1,800 branch rows are deliberately not part of the
+    // initial payload; the receipt form and store preferences request them only when that UI is
+    // opened (storeLocationsAction).
     timer.measure('storeChains', () => getStoreChainsCached()),
     // Only decides whether the account menu offers the administrator screen; the screen and its actions check again on the server.
     timer.measure('isAdmin', () => isAppAdmin(session.user.id)),
   ])
   // The rest needs the household data but not each other, so they go to the database together
   // instead of one after another (each wait is a round trip to the database).
-  const [productPrices, storeSelection, pins] = await Promise.all([
+  const [productPrices, standaloneOffers, storeSelection, pins] = await Promise.all([
     // Only the list's own products — not every product with a running promotion (see
     // ProductPriceScope): that used to load the whole promoted catalog's full price history on every
     // refresh, most of the database's compute (docs/07_CHANGELOG.md, 2026-09-26/27). Browsing every
     // promotion now lives in the Akce tab, which loads only the page being looked at
     // (app/actions/deals.ts).
     timer.measure('productPrices', () => getProductPricesCached({ names: data.items.map((item) => item.name), runningDeals: false })),
+    // Price badges and the offers comparison only need products on the list. Loading every running
+    // offer sent hundreds of unrelated products and about 100 KB on every page render.
+    timer.measure('standaloneOffers', () => getStandaloneOffersCached(data.items.map((item) => item.name))),
     // After getHouseholdData: on a first login that call is what creates the member row.
     timer.measure('storeSelection', () => getMemberIdForUser(session.user.id).then((memberId) => (memberId ? getMemberStoreSelection(memberId) : EMPTY_STORE_SELECTION))),
     timer.measure('pins', () => listPinsForHousehold(data.household.id)),
@@ -57,5 +60,5 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ [
   const [stockLevels, restockDismissals] = await timer.measure('stockLevels', () => Promise.all([getStockLevels(data.household.id), getRestockDismissals(data.household.id, todayInPrague())]))
   const restock = await timer.measure('restock', () => getRestockSuggestionsFor(stockLevels, data.pantryItems, todayInPrague(), storeSelection))
   timer.flush()
-  return <AppShell initialData={data} userName={session.user.name} userEmail={session.user.email} isAdmin={isAdmin} stores={stores} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} restockSuggestions={restock} initialStockLevels={stockLevels} initialRestockDismissals={restockDismissals} today={todayInPrague()} initialTab={initialTab} initialPantryCheck={initialPantryCheck} initialDealsChain={initialDealsChain} pushPublicKey={pushPublicKeyForClient()} />
+  return <AppShell initialData={data} userName={session.user.name} userEmail={session.user.email} isAdmin={isAdmin} productPrices={productPrices} standaloneOffers={standaloneOffers} storeChains={storeChains} initialStoreSelection={storeSelection} initialPins={pins} restockSuggestions={restock} initialStockLevels={stockLevels} initialRestockDismissals={restockDismissals} today={todayInPrague()} initialTab={initialTab} initialPantryCheck={initialPantryCheck} initialDealsChain={initialDealsChain} pushPublicKey={pushPublicKeyForClient()} />
 }

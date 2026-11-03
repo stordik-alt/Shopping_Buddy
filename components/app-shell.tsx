@@ -1,11 +1,13 @@
 'use client'
 
-import { useCallback, useMemo, useEffect, useState } from 'react'
+import { useCallback, useMemo, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { FocusTarget } from '@/lib/focus-target'
 import { buildShoppingPlanAction, pinProductAction, unpinProductAction } from '@/app/actions/shopping-plan'
 import { createManualPurchaseAction, deletePurchaseAction } from '@/app/actions/purchases'
 import { saveMyStorePreferencesAction } from '@/app/actions/store-preferences'
+import { storeLocationsAction } from '@/app/actions/store-directory'
+import { standaloneOffersForListAction } from '@/app/actions/offers'
 import { markMealCookedAction } from '@/app/actions/meal-plan'
 import { markAllNotificationsReadAction, markNotificationReadAction, setNotificationPreferenceAction } from '@/app/actions/notifications'
 import { wantsNotification } from '@/lib/notification-kinds'
@@ -108,7 +110,6 @@ export function AppShell({
   userName,
   userEmail,
   isAdmin,
-  stores,
   productPrices,
   standaloneOffers,
   storeChains,
@@ -129,7 +130,6 @@ export function AppShell({
   userEmail: string
   /** The account administers the app (offers the ideas management screen in the account menu). */
   isAdmin: boolean
-  stores: Store[]
   productPrices: ProductPrice[]
   /** Offers at stores for products with no regular price to compare against (lib/offers.ts). */
   standaloneOffers: StandaloneOffer[]
@@ -183,8 +183,20 @@ export function AppShell({
   // The products the user pinned to list items, per chain (the shopping planner buys exactly those).
   const [pins, setPins] = useState(initialPins)
   const nearbyProductPrices = useMemo(() => filterPricesToNearby(productPrices, storeSelection), [productPrices, storeSelection])
-  const nearbyStandaloneOffers = useMemo(() => nearbyOffers(standaloneOffers, storeSelection), [standaloneOffers, storeSelection])
+  const [currentStandaloneOffers, setCurrentStandaloneOffers] = useState(standaloneOffers)
+  const nearbyStandaloneOffers = useMemo(() => nearbyOffers(currentStandaloneOffers, storeSelection), [currentStandaloneOffers, storeSelection])
   const [items, setItems] = useState(initialData.items)
+  const offerNamesKey = JSON.stringify([...new Set(items.map((item) => item.name))].sort())
+  const lastOfferNamesKey = useRef(offerNamesKey)
+  useEffect(() => {
+    if (offerNamesKey === lastOfferNamesKey.current) return
+    lastOfferNamesKey.current = offerNamesKey
+    let active = true
+    void standaloneOffersForListAction(items.map((item) => item.name))
+      .then((offers) => { if (active) setCurrentStandaloneOffers(offers) })
+      .catch((error) => console.error('Refreshing standalone offers failed', error))
+    return () => { active = false }
+  }, [items, offerNamesKey])
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState(initialData.notifications)
   // The kinds this member switched off (Profil ▸ Upozornění); left out of their bell panel and count.
@@ -219,6 +231,22 @@ export function AppShell({
   const [planningOffset, setPlanningOffset] = useState(0)
   const [planOpen, setPlanOpen] = useState(false)
   const userLocation = useUserLocation()
+  // The store directory itself pages through branches on the server. Only the profile's branch
+  // picker and the receipt fallback need the full branch list, so load it when either is opened
+  // instead of serializing roughly 1,800 rows into every page.
+  const [stores, setStores] = useState<Store[]>([])
+  const storeLocationsRequested = useRef(false)
+  const needsStoreLocations = tab === 'Profil' || (tab === 'Nákup' && nakupView === 'uctenky')
+  useEffect(() => {
+    if (!needsStoreLocations || storeLocationsRequested.current) return
+    storeLocationsRequested.current = true
+    void storeLocationsAction()
+      .then(setStores)
+      .catch((error) => {
+        storeLocationsRequested.current = false
+        console.error('Loading store locations failed', error)
+      })
+  }, [needsStoreLocations])
 
   const { queueRef, activityRef, pendingCount, online, droppedCount, dismissDropped, runOrQueue, flushQueue } = useShoppingQueue({
     householdId: initialData.household.id,

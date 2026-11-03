@@ -25,6 +25,9 @@
 
 ## 2026-11-03 — Oprava scrollu nákupního seznamu a detailu zásob
 
+- Neon CLI diagnostika (`outliers`, `calls`, `table-sizes`, `index-sizes`, `seq-scans`, `vacuum-stats`, `long-running-queries`, `unused-indexes`) nenašla dlouho běžící dotazy ani chybějící kritický index. Zjistila však, že každé načtení posílalo 1 839 prodejen (637 KB) a 492 nesouvisejících akcí (108 KB).
+- Počáteční payload Domů klesl u reprezentativní domácnosti z přibližně 835 KB na 90 KB. Prodejny se načtou až pro profil nebo ruční účtenku; samostatné akce jen pro produkty aktuálního nákupního seznamu a po jeho změně se krátce obnoví.
+- Člen a domácnost se načítají jedním relačním dotazem místo dvou sekvenčních round-tripů. Teplé načtení domácnosti mělo po úpravě 196–214 ms; nebyl přidán žádný index bez důkazu.
 - Nákupní seznam už neponechává ovládací prvky mimo scrollovatelnou oblast. Seznamy, souhrn, doporučení, pole pro přidání, filtry, nástroje i samotné položky jsou v jedné stránce; položky zůstávají virtualizované přes `SectionList`.
 - Filtry řazení a seskupení se otevírají jako kompaktní nativní voliče. Kategorie dál používají zalamované možnosti, nikoli skryté vodorovné posouvání.
 - Detail zásoby doplňuje souhrnnou kartu s obrázkem, přesným množstvím a balením, editaci umístění a akce „Ještě mám“ a „Odstranit“. Obsah detailu se posouvá mezi pevnou hlavičkou a patičkou.

@@ -1,9 +1,11 @@
 'use server'
 
 import { requireHousehold } from '@/lib/auth/authorize'
+import { getStoresCached } from '@/lib/db/cached-reads'
 import { getChainTiles, searchBranches, type BranchPage, type ChainTile } from '@/lib/db/store-branch-search'
 import { getStoreProductNames } from '@/lib/db/queries'
 import { BRANCH_PAGE_SIZE, MAX_LOCALITY_TEXT, NEARBY_RADIUS_KM, type Locality } from '@/lib/stores/branch-search'
+import type { Store } from '@/lib/types'
 
 // The store directory: chain tiles, one page of branches at a time, and a branch's product names —
 // each loaded when the user asks for it instead of with every page render (the whole directory used
@@ -54,4 +56,11 @@ export async function storeProductNamesAction(storeLocationId: string): Promise<
   await requireHousehold()
   if (typeof storeLocationId !== 'string' || !UUID.test(storeLocationId)) throw new Error('Neplatná prodejna.')
   return getStoreProductNames(storeLocationId)
+}
+
+/** Household settings and the receipt fallback need branch choices, but the home page does not.
+ *  Returning them through an action keeps roughly 1,800 branches out of every initial page payload. */
+export async function storeLocationsAction(): Promise<Store[]> {
+  await requireHousehold()
+  return getStoresCached()
 }

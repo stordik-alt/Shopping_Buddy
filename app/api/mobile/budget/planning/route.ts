@@ -36,8 +36,9 @@ export async function GET(request: Request) {
     if (!isIsoDate(requested)) return json({ error: 'invalid_period' }, 400)
     const start = periodStartFor(config, requested)
     const until = nextPeriodStartFor(config, start)
-    const [budgetRow, incomeRows, plannedRows, schedules] = await Promise.all([
-      db.query.budgets.findFirst({ where: and(eq(schema.budgets.householdId, member.householdId), eq(schema.budgets.month, start)), columns: { amount: true } }),
+    const nextStart = nextPeriodStartFor(config, start)
+    const [budgetRows, incomeRows, plannedRows, schedules] = await Promise.all([
+      db.query.budgets.findMany({ where: and(eq(schema.budgets.householdId, member.householdId), inArray(schema.budgets.month, [start, nextStart])), columns: { month: true, amount: true } }),
       db.query.incomes.findMany({
         where: and(eq(schema.incomes.householdId, member.householdId), gte(schema.incomes.date, start), lt(schema.incomes.date, until)),
         orderBy: [asc(schema.incomes.date), asc(schema.incomes.createdAt)],
@@ -91,17 +92,113 @@ export async function GET(request: Request) {
           editable: false,
         }))
     })
-    const budget = Number(budgetRow?.amount ?? household.monthlyBudget)
+    const periodBudgets = Object.fromEntries(budgetRows.map((row) => [row.month, Number(row.amount)]))
+    const defaultBudget = Number(household.monthlyBudget)
+    const budget = periodBudgets[start] ?? defaultBudget
     return json({
-      period: { start, end: periodEndFor(config, start), next: until },
+      period: { start, end: periodEndFor(config, start), next: nextStart },
       currency: household.currency,
       budget,
+      defaultBudget,
+      periodBudgets,
+      savingsGoal: Number(household.savingsGoal),
+      canSetDefault: member.role === 'owner',
       incomes: [...incomes, ...recurringPlans].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id)),
       plannedExpenses: plannedRows.map((row) => ({ id: row.id, amount: Number(row.amount), note: row.note, category: row.category, date: row.date, status: row.status === 'paid' ? 'paid' : 'planned' })),
     })
   } catch (error) {
     if (error instanceof MobileRequestAuthError) return json({ error: error.code }, error.status)
     console.error('[mobile budget planning]', error)
+    return json({ error: 'request_failed' }, 500)
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const user = await mobileUserFromRequest(request)
+    const member = await mobileHouseholdForUser(user.id)
+    if (!member) return json({ error: 'household_required' }, 409)
+    const body = await bodyObject(request)
+    const allowed = ['defaultBudget', 'periodBudgets', 'savingsGoal']
+    if (!body || Object.keys(body).length === 0 || Object.keys(body).some((key) => !allowed.includes(key))) {
+      return json({ error: 'invalid_request' }, 400)
+    }
+    if (body.defaultBudget !== undefined && member.role !== 'owner') return json({ error: 'owner_required' }, 403)
+
+    const db = getDb()
+    const household = await db.query.households.findFirst({ where: eq(schema.households.id, member.householdId) })
+    if (!household) return json({ error: 'household_not_found' }, 404)
+    const config = periodConfigOfHousehold(household)
+    const current = periodStartFor(config, todayInPrague())
+    const next = nextPeriodStartFor(config, current)
+
+    let defaultBudget: number | null = null
+    if (body.defaultBudget !== undefined) {
+      if (typeof body.defaultBudget !== 'number' || !Number.isFinite(body.defaultBudget) || body.defaultBudget < 0 || body.defaultBudget > 100_000_000) {
+        return json({ error: 'invalid_budget' }, 400)
+      }
+      defaultBudget = body.defaultBudget
+    }
+
+    let savingsGoal: number | null = null
+    if (body.savingsGoal !== undefined) {
+      if (typeof body.savingsGoal !== 'number' || !Number.isFinite(body.savingsGoal) || body.savingsGoal < 0 || body.savingsGoal > 100_000_000) {
+        return json({ error: 'invalid_savings_goal' }, 400)
+      }
+      savingsGoal = body.savingsGoal
+    }
+
+    const periodChanges: { period: string; amount: number | null }[] = []
+    if (body.periodBudgets !== undefined) {
+      if (!Array.isArray(body.periodBudgets) || body.periodBudgets.length > 2) return json({ error: 'invalid_period_budgets' }, 400)
+      for (const entry of body.periodBudgets) {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return json({ error: 'invalid_period_budgets' }, 400)
+        const row = entry as Record<string, unknown>
+        if (Object.keys(row).some((key) => !['period', 'amount'].includes(key)) ||
+          typeof row.period !== 'string' || (row.period !== current && row.period !== next) ||
+          (row.amount !== null && (typeof row.amount !== 'number' || !Number.isFinite(row.amount) || row.amount < 0 || row.amount > 100_000_000))) {
+          return json({ error: 'invalid_period_budgets' }, 400)
+        }
+        periodChanges.push({ period: row.period, amount: row.amount as number | null })
+      }
+    }
+
+    if (defaultBudget !== null) {
+      await db.update(schema.households).set({ monthlyBudget: defaultBudget.toString() }).where(eq(schema.households.id, member.householdId))
+      await recordAudit({ householdId: member.householdId, memberId: member.id }, 'household.updated', { fields: 'monthlyBudget', amount: defaultBudget })
+    }
+    if (savingsGoal !== null) {
+      await db.update(schema.households).set({ savingsGoal: savingsGoal.toString() }).where(eq(schema.households.id, member.householdId))
+      await recordAudit({ householdId: member.householdId, memberId: member.id }, 'budget.savings_goal_set', { amount: savingsGoal })
+    }
+    for (const change of periodChanges) {
+      if (change.amount === null) {
+        await db.delete(schema.budgets).where(and(eq(schema.budgets.householdId, member.householdId), eq(schema.budgets.month, change.period)))
+      } else {
+        await db.insert(schema.budgets)
+          .values({ householdId: member.householdId, month: change.period, amount: change.amount.toString() })
+          .onConflictDoUpdate({ target: [schema.budgets.householdId, schema.budgets.month], set: { amount: change.amount.toString() } })
+      }
+      await recordAudit({ householdId: member.householdId, memberId: member.id }, 'budget.period_set', change)
+    }
+
+    const [updatedHousehold, updatedBudgets] = await Promise.all([
+      db.query.households.findFirst({ where: eq(schema.households.id, member.householdId) }),
+      db.query.budgets.findMany({ where: and(eq(schema.budgets.householdId, member.householdId), inArray(schema.budgets.month, [current, next])), columns: { month: true, amount: true } }),
+    ])
+    const updatedPeriodBudgets = Object.fromEntries(updatedBudgets.map((row) => [row.month, Number(row.amount)]))
+    const updatedDefault = Number(updatedHousehold?.monthlyBudget ?? household.monthlyBudget)
+    return json({
+      budget: updatedPeriodBudgets[current] ?? updatedDefault,
+      defaultBudget: updatedDefault,
+      periodBudgets: updatedPeriodBudgets,
+      savingsGoal: Number(updatedHousehold?.savingsGoal ?? household.savingsGoal),
+      canSetDefault: member.role === 'owner',
+      period: { start: current, end: periodEndFor(config, current), next },
+    })
+  } catch (error) {
+    if (error instanceof MobileRequestAuthError) return json({ error: error.code }, error.status)
+    console.error('[mobile budget planning update]', error)
     return json({ error: 'request_failed' }, 500)
   }
 }

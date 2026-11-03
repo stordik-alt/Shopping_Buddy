@@ -1,6 +1,11 @@
 appId: cz.shoppingbuddy.mobile
 ---
-- launchApp
+- launchApp:
+    permissions:
+      location: allow
+- extendedWaitUntil:
+    visible: "E-mail"
+    timeout: 120000
 - tapOn: "E-mail"
 - inputText: ${MOBILE_VISUAL_EMAIL}
 - hideKeyboard
@@ -9,5 +14,5 @@ appId: cz.shoppingbuddy.mobile
 - tapOn:
     id: login-submit
 - extendedWaitUntil:
-    visible: "Ahoj, já jsem Anitka!"
+    visible: "Ahoj, .*"
     timeout: 30000

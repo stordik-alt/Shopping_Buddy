@@ -309,12 +309,20 @@ jobs:
           target: google_apis
           arch: x86_64
           disk-size: 8G
+          ram-size: 3072
+          heap-size: 512
           disable-linux-hw-accel: false
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             adb reverse tcp:3000 tcp:3000
+            adb shell pm grant cz.shoppingbuddy.mobile android.permission.ACCESS_COARSE_LOCATION
+            adb shell pm grant cz.shoppingbuddy.mobile android.permission.ACCESS_FINE_LOCATION
+            adb shell cmd location set-location-enabled true
+            adb shell settings put secure location_mode 3
+            adb emu geo fix 14.4378 50.0755
+            sleep 2
             adb shell wm size 390x892
             adb shell wm density 160
 

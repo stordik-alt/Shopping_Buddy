@@ -23,6 +23,46 @@
 
 # Shopping Buddy — Change Log
 
+## 2026-11-03 — Oprava scrollu nákupního seznamu a detailu zásob
+
+- Neon CLI diagnostika (`outliers`, `calls`, `table-sizes`, `index-sizes`, `seq-scans`, `vacuum-stats`, `long-running-queries`, `unused-indexes`) nenašla dlouho běžící dotazy ani chybějící kritický index. Zjistila však, že každé načtení posílalo 1 839 prodejen (637 KB) a 492 nesouvisejících akcí (108 KB).
+- Počáteční payload Domů klesl u reprezentativní domácnosti z přibližně 835 KB na 90 KB. Prodejny se načtou až pro profil nebo ruční účtenku; samostatné akce jen pro produkty aktuálního nákupního seznamu a po jeho změně se krátce obnoví.
+- Člen a domácnost se načítají jedním relačním dotazem místo dvou sekvenčních round-tripů. Teplé načtení domácnosti mělo po úpravě 196–214 ms; nebyl přidán žádný index bez důkazu.
+- Nákupní seznam už neponechává ovládací prvky mimo scrollovatelnou oblast. Seznamy, souhrn, doporučení, pole pro přidání, filtry, nástroje i samotné položky jsou v jedné stránce; položky zůstávají virtualizované přes `SectionList`.
+- Filtry řazení a seskupení se otevírají jako kompaktní nativní voliče. Kategorie dál používají zalamované možnosti, nikoli skryté vodorovné posouvání.
+- Detail zásoby doplňuje souhrnnou kartu s obrázkem, přesným množstvím a balením, editaci umístění a akce „Ještě mám“ a „Odstranit“. Obsah detailu se posouvá mezi pevnou hlavičkou a patičkou.
+- Ověřeno: mobilní TypeScript, Android Metro bundle a 30 testů nákupního seznamu prošly. Vizuální kontrola na Android emulátoru v tomto prostředí neproběhla, protože není připojené zařízení ani spuštěný AVD.
+
+## 2026-11-02 — Doplnění parity Androidu s PWA
+
+- Zásoby už po otevření neposouvají celý obsah mimo obrazovku: hlavička se zalamuje a místa jsou v responzivní mřížce. Na Android emulátoru se ověřilo zobrazení všech šesti míst, počtů a položky Rýže.
+- Nákupní seznam má filtry textu a kategorie, skrytí hotových položek, řazení podle názvu nebo priority, seskupení podle kategorie nebo obchodu a volbu si pamatuje v SecureStore.
+- Řádky nákupního seznamu zobrazují kategorii, preferovaný obchod, poznámku a výrazné označení vysoké priority stejně jako PWA.
+- Detail položky nákupního seznamu umí upravit kategorii, preferovaný obchod, prioritu a poznámku vedle množství a jednotky. Změny procházejí offline frontou a jsou validované stejnou serverovou službou jako PWA.
+- Nákupní seznam nabízí „Nechat displej svítit“ přes `expo-keep-awake`.
+- Domovská obrazovka řadí rychlé akce hned po rozpočtu a nákupním seznamu a používá stejnou jednu kartu se čtyřmi ikonovými dlaždicemi jako PWA. Datum na Domů nově obsahuje rok a český měsíc se už nesprávně nekapitalizuje.
+- Domů a Rozpočet používají společný nativní budget hero s varováním od 80 %, denním zůstatkem, počtem dní a CTA pro nastavení limitu. CTA z Domů otevře plánování rozpočtu přímo.
+- Rozpočet doplňuje dvě doporučené útraty jako v PWA: na den a na týden. Nativní karty používají společný výpočet `budgetAllowances`, takže zobrazují stejné částky i stavy „chybí limit“, „překročeno“, „vyčerpáno“ a „období skončilo“.
+- Plán rozpočtu používá sbalitelné karty se souhrny pro příjmy, plánované výdaje, pravidelné příjmy, Kapsy a výhled/nastavení období. CTA „Nastavit rozpočet“ i tlačítko v Plánu otevírají nativní editor měsíčního, aktuálního a příštího rozpočtu a cíle úspor; mobilní API ověřuje roli správce, povolená období i částky.
+- Plán rozpočtu zobrazuje také skutečný zůstatek a deterministický odhad konce období z příjmů, splatných plateb, plánovaných výdajů a zbývajících převodů do Kapes. Výpočet a upozornění používají stejnou logiku `forecastPeriod` jako PWA.
+- Profil používá informační strukturu PWA s rozbalovacími kartami pro členy, děti, pozvánky, historii změn, smazání dat, obchody, nákupní preference, zásoby a upozornění. Karty jsou sbalené při vstupu, zobrazují krátké shrnutí a při zavření zachovají rozeditované formuláře; nativní volba vzhledu zůstává dostupná jako samostatná sekce.
+- Recepty nabízejí přímo na výchozí obrazovce zvýrazněnou akci „Co uvařit z toho, co mám doma?“. Doporučení podle zásob se načtou pod hledáním, zobrazí pokrytí surovin a jdou skrýt; původní tab „Podle zásob“ zůstává dostupný.
+- Detail prodejny v Obchodech jde rozbalit stejně jako v PWA. Android načte známé produkty až při otevření, zobrazí oblíbenou prodejnu a nabídne navigaci přes Mapy i přechod na akce konkrétního řetězce.
+- Jídelníček umí vyměnit pouze jedno vybrané jídlo přes „Jiný návrh“. Server používá společnou deterministickou funkci `regenerateMeal`, zachová ostatní dny, porce a rozpočet a odmítne případ, kdy v nabídce není jiný recept.
+- Odkazy z Domů otevírají přesný cíl: dnešní jídlo se v Jídelníčku zvýrazní a odscrolluje, položka seznamu z upozornění na končící akci otevře přímo svůj editor. Obecné odkazy zůstávají beze změny.
+- Nákupní seznam umí odstranit jednotlivou položku potvrzeným DELETE požadavkem. Odstranění prochází offline frontou, zruší i nesynchronizované lokální přidání a po obnovení připojení se bezpečně přehraje.
+- Každý řádek nákupního seznamu nabízí „Najít“ a otevře produktové vyhledávání už navázané na danou položku s předvyplněným názvem. Výběr produktu se tak ukládá pro správný řádek a řetězec.
+- Po odstranění položky zůstává sedm sekund dostupné „Vrátit zpět“. DELETE se do vypršení okna neposílá, takže zrušení zachová původní ID, připnutí produktů k řetězcům a všechny metadata; ostatní změny se mezitím synchronizují bez odeslání odloženého smazání.
+- Plán rozpočtu umožňuje přecházet mezi aktuálním a dalšími obdobími. Budoucí období načítá vlastní příjmy a plánované výdaje, nové položky ukládá k prvnímu dni období a skrývá Kapsy, pravidelné příjmy, uzávěrku a historii aktuálního období.
+- Poslední vizuální průchod srovnal kartu nákupního seznamu na Domů s PWA pomocí progresu dokončení. Recepty schovaly zdroje, řazení a filtr domácnosti pod „Další filtry“, takže výchozí obrazovka odpovídá kratšímu rozložení PWA.
+- Upozornění „Dnes je důležité“ jsou seskupená do jedné karty. Sekce Profilu a filtry receptů se zalamují, takže se na 390 px neztrácí poslední volby mimo vodorovný viewport.
+- Recepty doplňují rychlé filtry PWA. Klepnutí na „Rychlé“, „Večeře“, „Oběd“, „Polévky“, „Maso“, „Těstoviny“, „Dezerty“ nebo „Bezmasé“ nastaví dotaz a rovnou spustí hledání.
+- Obchody umí použít foreground polohu zařízení, hledat řetězce v okruhu 5 km, zobrazit vzdálenost prodejen a vrátit se k ručnímu zadání města. Mobilní API validuje souřadnice a GPS výsledky se záměrně necachují; bez lokality se zobrazí výchozí dotaz jako v PWA.
+- Zásoby doplňují filtr podkategorie a přepínač spotřebovaných položek.
+- CI recovery pro Maestro ověřuje skutečný `adb shell`, rozpozná `device offline`, `DeviceServerDiedException`, nedokončený `Launch app` i další ztrátu ADB transportu a po restartu ADB zkusí flow až třikrát. Selhání, které není infrastrukturní, ukončí hned.
+- Produkční audit už nepočítá Expo CLI mezi produkční závislosti. Auth závislosti byly aktualizovány na `@neondatabase/auth@0.7.0-beta` a `better-auth@1.7.7`; `pnpm audit --prod --audit-level=high` prochází.
+- Ověřeno: Expo a kořenový TypeScript, 204 zaměřených testů rozpočtové, jídelníčkové a offline logiky, mobilních API a API klienta a produkční dependency audit; Android screenshot běh nově ověřuje také načtení obchodů podle emulátorové polohy a otevření detailu prodejny.
+
 ## 2026-10-25 — Vizuální kontrola Expo aplikace a interaktivní průvodce
 
 - Dosavadní Playwright smoke testy snímaly PWA při mobilních šířkách, ale nezachycovaly její AI chat ani průvodce a nespouštěly nativní aplikaci.

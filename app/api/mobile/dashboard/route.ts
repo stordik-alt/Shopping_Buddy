@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     const names = pendingItems.map((item) => item.name)
     const [priceRows, offers, restockDismissed] = await Promise.all([
       getProductPricesCached({ names, runningDeals: false }),
-      getStandaloneOffersCached(),
+      getStandaloneOffersCached(names),
       getRestockDismissals(member.householdId, today),
     ])
     const productPrices = filterPricesToNearby(priceRows, selection)

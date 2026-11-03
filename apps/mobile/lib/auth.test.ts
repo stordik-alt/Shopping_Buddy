@@ -54,6 +54,23 @@ describe('mobile auth token cache', () => {
     await expect(getAccessToken()).resolves.toBe(TEST_JWT)
   })
 
+  it('treats an unauthenticated Neon token response as the normal signed-out state', async () => {
+    mocks.getToken.mockResolvedValue({ error: { status: 401, message: 'Unauthorized' } })
+
+    await expect(getAccessToken()).resolves.toBeNull()
+    expect(mocks.values.has('anitka.auth.jwt')).toBe(false)
+    expect(Observe.reportError).not.toHaveBeenCalled()
+  })
+
+  it('clears stale cookies and JWT when Neon Auth rejects the token request with 401', async () => {
+    mocks.values.set('anitka.auth.cookies', '__Secure-neon-auth.session_token=expired-session')
+    mocks.values.set('anitka.auth.jwt', TEST_JWT)
+    mocks.getToken.mockRejectedValue(Object.assign(new Error('Unauthorized'), { status: 401 }))
+
+    await expect(getAccessToken()).resolves.toBeNull()
+    expect(mocks.values.has('anitka.auth.cookies')).toBe(false)
+    expect(mocks.values.has('anitka.auth.jwt')).toBe(false)
+  })
   it('stores and returns a fresh bearer token from Neon Auth', async () => {
     mocks.getToken.mockResolvedValue({ data: { token: TEST_JWT } })
 
@@ -109,9 +126,8 @@ describe('mobile auth token cache', () => {
   })
 
   it('persists cookies and Neon JWTs from the adapter response hook', async () => {
-    mocks.config.localAuth = true
     mocks.signInEmail.mockResolvedValue({ data: {} })
-    mocks.getSession.mockResolvedValue({ data: { session: { token: 'opaque-session-id' } } })
+    mocks.getToken.mockResolvedValue({ data: { token: TEST_JWT } })
     await signIn('mobile@example.com', 'password123')
 
     const options = mocks.adapterOptions.mock.lastCall?.[0] as {
@@ -120,29 +136,55 @@ describe('mobile auth token cache', () => {
     await options.fetchOptions.onSuccess({
       response: new Response(null, {
         headers: {
-          'set-cookie': 'better-auth.session_token=signed-session; Path=/; HttpOnly; Max-Age=3600',
+          'set-cookie': '__Secure-neon-auth.session_token=signed-session; Path=/; HttpOnly; Secure; Max-Age=3600',
           'set-auth-jwt': TEST_JWT,
         },
       }),
     })
 
-    expect(mocks.values.get('anitka.auth.cookies')).toBe('better-auth.session_token=signed-session')
+    expect(mocks.values.get('anitka.auth.cookies')).toBe('__Secure-neon-auth.session_token=signed-session')
     expect(mocks.values.get('anitka.auth.jwt')).toBe(TEST_JWT)
   })
 
-  it('sends the persisted Neon Auth cookie with later auth requests', async () => {
-    mocks.values.set('anitka.auth.cookies', 'neon-auth.session_token=signed-session')
-    mocks.getToken.mockResolvedValue({ data: { token: TEST_JWT } })
+  it('signs in, sends the production Neon cookie to /token, and returns a JWT for bearer auth', async () => {
+    let tokenRequest: { url: string; method: string; headers: Headers } | undefined
+    mocks.signInEmail.mockImplementation(async () => {
+      const options = mocks.adapterOptions.mock.lastCall?.[0] as {
+        fetchOptions: { onSuccess: (context: { response: Response }) => Promise<void> }
+      }
+      await options.fetchOptions.onSuccess({
+        response: new Response(null, {
+          headers: { 'set-cookie': '__Secure-neon-auth.session_token=signed-session; Path=/; HttpOnly; Secure; Max-Age=3600' },
+        }),
+      })
+      return { data: {} }
+    })
+    mocks.getToken.mockImplementation(async () => {
+      const options = mocks.adapterOptions.mock.lastCall?.[0] as {
+        fetchOptions: { onRequest: (request: { url: string; method: string; headers: Headers }) => Promise<void> }
+      }
+      const request = { url: 'https://anitka.example/api/auth/token', method: 'GET', headers: new Headers() }
+      tokenRequest = request
+      await options.fetchOptions.onRequest(request)
+      return request.headers.get('cookie') === '__Secure-neon-auth.session_token=signed-session'
+        ? { data: { token: TEST_JWT } }
+        : { error: { message: 'Missing session cookie' } }
+    })
 
-    await getAccessToken()
+    await signIn('mobile@example.com', 'password123')
 
     const options = mocks.adapterOptions.mock.lastCall?.[0] as {
-      fetchOptions: { onRequest: (request: { headers: Headers }) => Promise<void> }
+      fetchOptions: {
+        credentials: string
+        onRequest: (request: { url: string; method: string; headers: Headers }) => Promise<void>
+      }
     }
-    const request = { headers: new Headers() }
-    await options.fetchOptions.onRequest(request)
-
-    expect(request.headers.get('cookie')).toBe('neon-auth.session_token=signed-session')
+    expect(options.fetchOptions.credentials).toBe('include')
+    expect(mocks.getToken).toHaveBeenCalledOnce()
+    expect(tokenRequest?.url).toBe('https://anitka.example/api/auth/token')
+    expect(tokenRequest?.headers.get('cookie')).toBe('__Secure-neon-auth.session_token=signed-session')
+    expect(mocks.values.get('anitka.auth.jwt')).toBe(TEST_JWT)
+    expect(`Bearer ${await getAccessToken()}`).toBe(`Bearer ${TEST_JWT}`)
   })
 
   it('reports Neon Auth 429 and shows a temporary service message', async () => {

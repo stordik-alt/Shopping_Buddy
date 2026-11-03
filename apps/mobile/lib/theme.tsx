@@ -18,6 +18,8 @@ export type ThemeColors = {
   card: string
   elevated: string
   muted: string
+  hero: string
+  heroForeground: string
   navyOverlay: string
   destructive: string
   destructiveSubtle: string
@@ -40,6 +42,8 @@ const LIGHT: ThemeColors = {
   card: '#ffffff',
   elevated: '#ffffff',
   muted: '#f0efeb',
+  hero: '#0a1a3f',
+  heroForeground: '#ffffff',
   navyOverlay: '#0a1a3fcc',
   destructive: '#a72d2d',
   destructiveSubtle: '#fff0f0',
@@ -62,6 +66,8 @@ const DARK: ThemeColors = {
   card: '#1d2948',
   elevated: '#263353',
   muted: '#202d4c',
+  hero: '#263353',
+  heroForeground: '#f2f1ed',
   navyOverlay: '#020817cc',
   destructive: '#ff9990',
   destructiveSubtle: '#542c39',

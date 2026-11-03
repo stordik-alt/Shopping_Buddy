@@ -44,12 +44,16 @@ export const getStoreChainsCached = unstable_cache(getStoreChains, ['store-chain
   tags: [GLOBAL_CACHE_TAGS.storeChains],
 })
 
-const standaloneOffersFor = unstable_cache((today: string) => getStandaloneOffers(today), ['standalone-offers-v3'], {
-  revalidate: ONE_DAY,
-  tags: [GLOBAL_CACHE_TAGS.standaloneOffers],
-})
-/** Today's offers without a regular price; keyed by the date, so a new day never serves yesterday's. */
-export const getStandaloneOffersCached = () => standaloneOffersFor(ingestionDate())
+const standaloneOffersFor = unstable_cache(
+  (productNames: string[], today: string) => getStandaloneOffers(today, productNames),
+  ['standalone-offers-v4'],
+  { revalidate: ONE_DAY, tags: [GLOBAL_CACHE_TAGS.standaloneOffers] },
+)
+/** Today's offers for the products the opened screen can show. The date is part of the key, so a
+ *  new day never serves yesterday's offers, and the sorted names keep equivalent list orders on the
+ *  same cache entry instead of loading every offer in the catalog. */
+export const getStandaloneOffersCached = (productNames: string[]) =>
+  standaloneOffersFor([...new Set(productNames.map((name) => name.trim()).filter(Boolean))].sort(), ingestionDate())
 
 const productPricesFor = unstable_cache(
   (names: string[], runningDeals: boolean, _today: string) => getProductPrices({ names, runningDeals }),

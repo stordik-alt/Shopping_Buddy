@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { mobileHouseholdForUser, mobileUserFromRequest, MobileRequestAuthError } from '@/lib/auth/mobile-request'
 import { ShoppingInputError } from '@/lib/shopping-input'
-import { isShoppingItemUnit, ShoppingResourceNotFoundError, toggleShoppingItemForHousehold, updateShoppingItemForHousehold } from '@/lib/shopping-list-service'
+import { isShoppingItemUnit, removeShoppingItemForHousehold, ShoppingResourceNotFoundError, toggleShoppingItemForHousehold, updateShoppingItemForHousehold } from '@/lib/shopping-list-service'
+import type { ItemCategory, ItemPriority } from '@/lib/types'
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: NO_STORE })
@@ -42,15 +43,37 @@ export async function PATCH(request: Request, context: { params: Promise<{ itemI
       return json({ ok: true })
     }
 
-    if (Object.keys(body).some((key) => !['quantity', 'unit'].includes(key)) || Object.keys(body).length === 0) {
+    if (Object.keys(body).some((key) => !['quantity', 'unit', 'category', 'priority', 'note', 'store', 'productTypes'].includes(key)) || Object.keys(body).length === 0) {
       throw new ShoppingInputError('Neplatný požadavek.')
     }
     if (body.quantity !== undefined && typeof body.quantity !== 'number') throw new ShoppingInputError('Množství musí být kladné číslo.')
     if (body.unit !== undefined && !isShoppingItemUnit(body.unit)) throw new ShoppingInputError('Neplatná jednotka.')
+    if (body.category !== undefined && typeof body.category !== 'string') throw new ShoppingInputError('Neplatná kategorie.')
+    if (body.priority !== undefined && typeof body.priority !== 'string') throw new ShoppingInputError('Neplatná priorita.')
+    if (body.note !== undefined && typeof body.note !== 'string') throw new ShoppingInputError('Neplatná poznámka.')
+    if (body.store !== undefined && body.store !== null && typeof body.store !== 'string') throw new ShoppingInputError('Neplatný obchod.')
+    if (body.productTypes !== undefined && body.productTypes !== null && (!Array.isArray(body.productTypes) || !body.productTypes.every((value) => typeof value === 'string'))) throw new ShoppingInputError('Neplatný druh zboží.')
     await updateShoppingItemForHousehold(authenticated.householdId, itemId, {
       ...(body.quantity !== undefined && { quantity: body.quantity }),
       ...(body.unit !== undefined && { unit: body.unit }),
+      ...(body.category !== undefined && { category: body.category as ItemCategory }),
+      ...(body.priority !== undefined && { priority: body.priority as ItemPriority }),
+      ...(body.note !== undefined && { note: body.note }),
+      ...(body.store !== undefined && { store: body.store === null ? '' : body.store as string }),
+      ...(body.productTypes !== undefined && { productTypes: body.productTypes as string[] | null }),
     })
+    return json({ ok: true })
+  } catch (error) {
+    return failure(error)
+  }
+}
+
+export async function DELETE(request: Request, context: { params: Promise<{ itemId: string }> }) {
+  try {
+    const authenticated = await requestHousehold(request)
+    if (!authenticated) return json({ error: 'household_required' }, 409)
+    const { itemId } = await context.params
+    await removeShoppingItemForHousehold(authenticated.householdId, itemId)
     return json({ ok: true })
   } catch (error) {
     return failure(error)

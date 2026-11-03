@@ -4,6 +4,7 @@ const mobileUserFromRequest = vi.fn()
 const mobileHouseholdForUser = vi.fn()
 const toggleShoppingItemForHousehold = vi.fn()
 const updateShoppingItemForHousehold = vi.fn()
+const removeShoppingItemForHousehold = vi.fn()
 
 vi.mock('@/lib/auth/mobile-request', async (original) => ({
   ...(await original<typeof import('@/lib/auth/mobile-request')>()),
@@ -16,9 +17,10 @@ vi.mock('@/lib/shopping-list-service', async (original) => ({
   ...(await original<typeof import('@/lib/shopping-list-service')>()),
   toggleShoppingItemForHousehold: (...args: unknown[]) => toggleShoppingItemForHousehold(...args),
   updateShoppingItemForHousehold: (...args: unknown[]) => updateShoppingItemForHousehold(...args),
+  removeShoppingItemForHousehold: (...args: unknown[]) => removeShoppingItemForHousehold(...args),
 }))
 
-import { PATCH } from '@/app/api/mobile/shopping-list/[itemId]/route'
+import { DELETE, PATCH } from '@/app/api/mobile/shopping-list/[itemId]/route'
 import { ShoppingResourceNotFoundError } from '@/lib/shopping-list-service'
 
 const request = (body: unknown) =>
@@ -50,6 +52,22 @@ describe('PATCH /api/mobile/shopping-list/[itemId]', () => {
     expect(updateShoppingItemForHousehold).toHaveBeenCalledWith('household-1', 'item-1', { quantity: 1.5, unit: 'kg' })
   })
 
+  it('updates the full item metadata available in the PWA detail', async () => {
+    const response = await PATCH(request({
+      category: 'Drogerie',
+      priority: 'Vysoká',
+      note: 'Bez parfému',
+      store: 'Lidl',
+    }), context)
+    expect(response.status).toBe(200)
+    expect(updateShoppingItemForHousehold).toHaveBeenCalledWith('household-1', 'item-1', {
+      category: 'Drogerie',
+      priority: 'Vysoká',
+      note: 'Bez parfému',
+      store: 'Lidl',
+    })
+  })
+
   it('rejects unsupported input and does not report a write as successful', async () => {
     const response = await PATCH(request({ unit: 'tuna' }), context)
     expect(response.status).toBe(400)
@@ -62,5 +80,12 @@ describe('PATCH /api/mobile/shopping-list/[itemId]', () => {
     const response = await PATCH(request({ quantity: 3 }), context)
     expect(response.status).toBe(404)
     expect(await response.json()).toEqual({ error: 'not_found' })
+  })
+
+  it('deletes only the selected household item', async () => {
+    const response = await DELETE(new Request('https://anitka.example/api/mobile/shopping-list/item-1', { method: 'DELETE' }), context)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true })
+    expect(removeShoppingItemForHousehold).toHaveBeenCalledWith('household-1', 'item-1')
   })
 })

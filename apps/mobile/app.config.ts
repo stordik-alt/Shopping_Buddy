@@ -56,6 +56,15 @@ const config: ExpoConfig = {
         microphonePermission: false,
       },
     ],
+    [
+      'expo-location',
+      {
+        locationWhenInUsePermission: 'ANITKA používá vaši polohu pouze k nalezení obchodů v okolí.',
+        isAndroidBackgroundLocationEnabled: false,
+        isAndroidForegroundServiceEnabled: false,
+        isAndroidMotionActivityEnabled: false,
+      },
+    ],
     ...(process.env.ANITKA_E2E_CLEAR_TEXT === '1'
       ? [withE2ECleartextTraffic as unknown as NonNullable<ExpoConfig['plugins']>[number]]
       : []),

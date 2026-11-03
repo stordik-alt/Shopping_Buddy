@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { RefreshCw } from 'lucide-react-native'
 import { unitLabel, type ItemUnit } from '@anitka/shared/units'
 import { getAccessToken } from '../lib/auth'
 import { RefreshButton } from './refresh-button'
@@ -10,6 +11,7 @@ import {
   getMealPlan,
   markMealCooked,
   MobileApiError,
+  regenerateMealPlan,
   setMealServings,
   type MobileMealPlan,
   type MobileMealPlanOptions,
@@ -24,7 +26,11 @@ function displayQuantity(quantity: number, unit: ItemUnit): string {
   return `${rounded} ${unitLabel(rounded, unit)}`
 }
 
-export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void }) {
+export function MealPlanScreen({ onAuthExpired, focusedMeal = null, onFocusHandled }: {
+  onAuthExpired: () => void
+  focusedMeal?: { day: string; mealType: MobileMealType } | null
+  onFocusHandled?: () => void
+}) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
   const createGuideTarget = useNativeGuideTarget('mealplan-create')
@@ -37,6 +43,10 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
   const [budgetLimit, setBudgetLimit] = useState('0')
   const [mealTypes, setMealTypes] = useState<MobileMealType[]>(MEAL_TYPES)
   const [useStock, setUseStock] = useState(true)
+  const scrollRef = useRef<ScrollView>(null)
+  const dayOffsets = useRef<Record<string, number>>({})
+  const mealOffsets = useRef<Record<string, number>>({})
+  const [highlightedMeal, setHighlightedMeal] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -56,6 +66,24 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (!focusedMeal || !plan) return
+    const key = `${focusedMeal.day}__${focusedMeal.mealType}`
+    const timer = setTimeout(() => {
+      const y = (dayOffsets.current[focusedMeal.day] ?? 0) + (mealOffsets.current[key] ?? 0)
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true })
+      setHighlightedMeal(key)
+      onFocusHandled?.()
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [focusedMeal, onFocusHandled, plan])
+
+  useEffect(() => {
+    if (!highlightedMeal) return
+    const timer = setTimeout(() => setHighlightedMeal(null), 2400)
+    return () => clearTimeout(timer)
+  }, [highlightedMeal])
 
   function toggleMealType(mealType: MobileMealType) {
     setMealTypes((current) => current.includes(mealType) ? current.filter((type) => type !== mealType) : [...current, mealType])
@@ -120,6 +148,21 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
     }
   }
 
+  async function replaceMeal(day: string, mealType: MobileMealType) {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      const result = await regenerateMealPlan(day, mealType, useStock)
+      setPlan(result.plan)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Jiné jídlo se nepodařilo navrhnout.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function openSource(url: string) {
     try {
       await Linking.openURL(url)
@@ -129,7 +172,7 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.scroll}>
+    <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.scroll}>
       <View style={styles.heading}>
         <View style={styles.headingText}>
           <Text numberOfLines={1} style={styles.title}>Jídelníček</Text>
@@ -192,10 +235,11 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
             <Text style={styles.summaryText}>{plan.pricingPending ? 'Cena není dostupná' : `Odhad ${plan.estimatedTotal} Kč`}</Text>
           </View>
           {plan.days.map((day) => (
-            <View key={day.day} style={styles.dayCard}>
+            <View key={day.day} onLayout={(event) => { dayOffsets.current[day.day] = event.nativeEvent.layout.y }} style={styles.dayCard}>
               <Text style={styles.sectionTitle}>{day.day}</Text>
-              {day.meals.map(({ mealType, cooked, recipe }) => (
-                <View key={`${day.day}-${mealType}`} style={styles.mealCard}>
+              {day.meals.map(({ mealType, cooked, recipe }) => {
+                const mealKey = `${day.day}__${mealType}`
+                return <View key={`${day.day}-${mealType}`} onLayout={(event) => { mealOffsets.current[mealKey] = event.nativeEvent.layout.y }} style={[styles.mealCard, highlightedMeal === mealKey && styles.mealCardFocused]}>
                   {recipe.imageUrl && imageToken ? (
                     <Image
                       accessibilityLabel={`Obrázek receptu ${recipe.name}`}
@@ -227,7 +271,10 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
                       <Text style={styles.servingButtonText}>+</Text>
                     </Pressable>
                   </View>
-                  {!cooked ? <Pressable accessibilityRole="button" disabled={saving} onPress={() => void cookMeal(day.day, mealType)} style={[styles.cookedButton, saving && styles.disabled]}><Text style={styles.cookedButtonText}>{saving ? 'Ukládám…' : 'Označit jako uvařené'}</Text></Pressable> : null}
+                  <View style={styles.mealActions}>
+                    {!cooked ? <Pressable accessibilityRole="button" disabled={saving} onPress={() => void cookMeal(day.day, mealType)} style={[styles.cookedButton, saving && styles.disabled]}><Text style={styles.cookedButtonText}>{saving ? 'Ukládám…' : 'Označit jako uvařené'}</Text></Pressable> : null}
+                    <Pressable accessibilityRole="button" disabled={saving} onPress={() => void replaceMeal(day.day, mealType)} style={[styles.replaceButton, saving && styles.disabled]}><RefreshCw color={colors.secondaryText} size={16} /><Text style={styles.replaceButtonText}>Jiný návrh</Text></Pressable>
+                  </View>
                   {recipe.ingredients.length > 0 ? (
                     <View style={styles.ingredients}>
                       <Text style={styles.label}>Suroviny</Text>
@@ -244,7 +291,7 @@ export function MealPlanScreen({ onAuthExpired }: { onAuthExpired: () => void })
                     </Pressable>
                   ) : null}
                 </View>
-              ))}
+              })}
             </View>
           ))}
         </>
@@ -284,6 +331,7 @@ function useStyles() {
   summaryText: { color: colors.secondaryText, fontSize: 13, fontWeight: '600' },
   dayCard: { backgroundColor: colors.muted, borderRadius: 16, marginHorizontal: 16, marginTop: 8, padding: 12, gap: 8 },
   mealCard: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 14, borderWidth: 1, padding: 12, gap: 8 },
+  mealCardFocused: { borderColor: colors.accent, borderWidth: 2, backgroundColor: colors.accentSubtle },
   photo: { width: '100%', height: 180, borderRadius: 10, backgroundColor: colors.muted },
   mealType: { color: colors.accentText, fontSize: 13, fontWeight: '700' },
   mealName: { color: colors.foreground, fontSize: 17, fontWeight: '700' },
@@ -291,6 +339,9 @@ function useStyles() {
   servingsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   cookedButton: { minHeight: 42, alignSelf: 'flex-start', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.accentSubtle, paddingHorizontal: 13 },
   cookedButtonText: { color: colors.accentText, fontSize: 14, fontWeight: '700' },
+  mealActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  replaceButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', borderColor: colors.border, borderWidth: 1, borderRadius: 12, backgroundColor: colors.card, paddingHorizontal: 13 },
+  replaceButtonText: { color: colors.secondaryText, fontSize: 14, fontWeight: '700' },
   servingButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 21, backgroundColor: colors.accentSubtle },
   servingButtonText: { color: colors.accentText, fontSize: 22, fontWeight: '700' },
   ingredients: { borderTopColor: colors.border, borderTopWidth: 1, paddingTop: 8, gap: 4 },

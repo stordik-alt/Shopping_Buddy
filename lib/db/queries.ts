@@ -788,10 +788,13 @@ export async function getHouseholdData(
   // Names one query of the parallel batch below, so the log shows which of them is slow.
   const timed = <T>(name: string, query: PromiseLike<T>) => timer.measure(`hh.${name}`, () => query)
 
-  const ownMember = await timer.measure('hh.member', () => db.query.householdMembers.findFirst({ where: eq(schema.householdMembers.userId, userId) }))
+  const ownMember = await timer.measure('hh.member', () => db.query.householdMembers.findFirst({
+    where: eq(schema.householdMembers.userId, userId),
+    with: { household: true },
+  }))
   let household: typeof schema.households.$inferSelect | undefined
   if (ownMember) {
-    household = await timer.measure('hh.household', () => db.query.households.findFirst({ where: eq(schema.households.id, ownMember.householdId) }))
+    household = ownMember.household ?? undefined
   } else {
     // Joining by e-mail match alone, without the invitation token, is allowed only for an e-mail the
     // auth provider has verified. Otherwise anyone who knows an invited address could register with it
@@ -1822,6 +1825,7 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
  *  invented (CLAUDE.md sections 15 and 18). One row per product and chain: the cheapest offer running
  *  today. "Today" is the real date (Prague), like ingestion's, not the app's fixed demo date. */
 export async function getStandaloneOffers(today: string = ingestionDate(), productNames?: string[]): Promise<StandaloneOffer[]> {
+  if (productNames != null && productNames.length === 0) return []
   const db = getDb()
   const rows = await db.execute<{
     name: string
@@ -1842,7 +1846,11 @@ export async function getStandaloneOffers(today: string = ingestionDate(), produ
     JOIN stores s ON s.id = d.store_id
     WHERE d.valid_from <= ${today}::date AND d.valid_until >= ${today}::date
       AND NOT EXISTS (SELECT 1 FROM prices pr WHERE pr.product_id = d.product_id AND pr.store_id = d.store_id)
-      ${productNames && productNames.length > 0 ? sql`AND p.name IN (${sql.join(productNames.map((name) => sql`${name}`), sql`, `)})` : sql``}
+      ${productNames != null
+        ? productNames.length > 0
+          ? sql`AND p.name IN (${sql.join(productNames.map((name) => sql`${name}`), sql`, `)})`
+          : sql`AND FALSE`
+        : sql``}
     ORDER BY p.id, s.id, d.deal_price ASC, d.valid_until DESC
   `)
   return rows.rows.map((row) => ({

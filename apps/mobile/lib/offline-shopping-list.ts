@@ -1,10 +1,11 @@
 import { ITEM_UNITS, type ItemUnit } from '@anitka/shared/units'
-import type { MobileShoppingItem, MobileShoppingList } from './shopping-list-api'
+import type { MobileShoppingItem, MobileShoppingItemChanges, MobileShoppingList } from './shopping-list-api'
 
 export type OfflineShoppingOperation =
   | { kind: 'add'; item: MobileShoppingItem }
   | { kind: 'toggle'; itemId: string; done: boolean }
-  | { kind: 'update'; itemId: string; changes: { quantity?: number; unit?: ItemUnit } }
+  | { kind: 'update'; itemId: string; changes: MobileShoppingItemChanges }
+  | { kind: 'remove'; itemId: string }
 
 export type OfflineShoppingSnapshot = {
   version: 1
@@ -23,7 +24,8 @@ export type OfflineContext = {
 export type OfflineShoppingApi = {
   add: (name: string, clientId: string, quantity?: number, unit?: ItemUnit, details?: { listId?: string }) => Promise<{ item: MobileShoppingItem }>
   toggle: (itemId: string, done: boolean) => Promise<unknown>
-  update: (itemId: string, changes: { quantity?: number; unit?: ItemUnit }) => Promise<unknown>
+  update: (itemId: string, changes: MobileShoppingItemChanges) => Promise<unknown>
+  remove: (itemId: string) => Promise<unknown>
 }
 
 export type OfflineSyncResult = {
@@ -58,6 +60,13 @@ export function enqueueOfflineOperation(
     return [...operations.filter((entry) => !(entry.kind === 'toggle' && entry.itemId === operation.itemId)), operation]
   }
 
+  if (operation.kind === 'remove') {
+    return [
+      ...operations.filter((entry) => !((entry.kind === 'add' && entry.item.id === operation.itemId) || (entry.kind !== 'add' && entry.itemId === operation.itemId))),
+      operation,
+    ]
+  }
+
   const previous = operations.find(
     (entry): entry is Extract<OfflineShoppingOperation, { kind: 'update' }> =>
       entry.kind === 'update' && entry.itemId === operation.itemId,
@@ -82,10 +91,12 @@ export function applyOfflineOperations(
       visible = visible.map((item) =>
         item.id === operation.itemId ? { ...item, done: operation.done, pending: true } : item,
       )
-    } else {
+    } else if (operation.kind === 'update') {
       visible = visible.map((item) =>
         item.id === operation.itemId ? { ...item, ...operation.changes, pending: true } : item,
       )
+    } else {
+      visible = visible.filter((item) => item.id !== operation.itemId)
     }
   }
   return visible
@@ -162,8 +173,11 @@ export async function syncOfflineOperations(
         )
       } else if (operation.kind === 'toggle') {
         await api.toggle(operation.itemId, operation.done)
-      } else {
+      } else if (operation.kind === 'update') {
         await api.update(operation.itemId, operation.changes)
+      } else {
+        await api.remove(operation.itemId)
+        list = { ...list, items: list.items.filter((item) => item.id !== operation.itemId) }
       }
 
       snapshot = { ...snapshot, list, pending }
@@ -212,13 +226,19 @@ function isOfflineShoppingOperation(value: unknown): value is OfflineShoppingOpe
   if (operation.kind === 'toggle') {
     return typeof operation.itemId === 'string' && typeof operation.done === 'boolean'
   }
+  if (operation.kind === 'remove') return typeof operation.itemId === 'string'
   if (operation.kind === 'update' && typeof operation.itemId === 'string' && operation.changes && typeof operation.changes === 'object') {
     const changes = operation.changes as Record<string, unknown>
     return (
       (changes.quantity === undefined || (typeof changes.quantity === 'number' && Number.isFinite(changes.quantity) && changes.quantity > 0 && changes.quantity < 10_000_000)) &&
       (changes.unit === undefined || (typeof changes.unit === 'string' && ITEM_UNITS.includes(changes.unit as ItemUnit))) &&
+      (changes.category === undefined || (typeof changes.category === 'string' && ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'].includes(changes.category))) &&
+      (changes.priority === undefined || changes.priority === 'Nízká' || changes.priority === 'Normální' || changes.priority === 'Vysoká') &&
+      (changes.note === undefined || typeof changes.note === 'string') &&
+      (changes.store === undefined || changes.store === null || typeof changes.store === 'string') &&
+      (changes.productTypes === undefined || changes.productTypes === null || (Array.isArray(changes.productTypes) && changes.productTypes.every((value) => typeof value === 'string'))) &&
       Object.keys(changes).length > 0 &&
-      Object.keys(changes).every((key) => key === 'quantity' || key === 'unit')
+      Object.keys(changes).every((key) => ['quantity', 'unit', 'category', 'priority', 'note', 'store', 'productTypes'].includes(key))
     )
   }
   return false

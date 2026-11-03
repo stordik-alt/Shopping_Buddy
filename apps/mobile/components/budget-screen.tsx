@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { Baby, Bus, Building2, Car, Heart, House, Shirt, ShoppingBag, ShoppingBasket, Sparkles, Ticket, type LucideIcon } from 'lucide-react-native'
+import { Baby, Bus, Building2, Car, ChevronDown, Heart, House, Shirt, ShoppingBag, ShoppingBasket, Sparkles, Ticket, type LucideIcon } from 'lucide-react-native'
 import Svg, { Circle, Defs, Path, Pattern, Rect } from 'react-native-svg'
 import { EXPENSE_CATEGORY_NAMES, subcategoriesOf, type ExpenseCategory } from '../../../lib/expense-categories'
 import {
@@ -39,6 +39,7 @@ import {
   stopRecurringIncome,
   transferPocket,
   setPlannedCarry,
+  updateBudgetPlan,
   updateBudgetIncome,
   updateRecurringPayment,
   updateRecurringIncome,
@@ -66,6 +67,7 @@ import { RecurringPaymentsScreen } from './recurring-payments-screen'
 import { RecurringIncomesScreen } from './recurring-incomes-screen'
 import { PocketsScreen } from './pockets-screen'
 import { BudgetAdvancedScreen } from './budget-advanced-screen'
+import { NativeBudgetAllowances, NativeBudgetHero } from './native-budget-hero'
 import type { RecurringPayment, RecurringPaymentInput } from '../../../lib/recurring-payments'
 import type { RecurringIncome, RecurringIncomeInput } from '../../../lib/recurring-incomes'
 import type { Pocket } from '../../../lib/types'
@@ -73,7 +75,9 @@ import type { PocketInput } from '../../../lib/pocket-input'
 import type { BudgetOutlook } from '../../../lib/types'
 import type { PeriodHistoryRow } from '../../../lib/budget-history'
 import type { PeriodConfig } from '../../../lib/budget-period'
-import type { PocketAmount } from '../../../lib/budget-closing'
+import { periodResult, type PocketAmount } from '../../../lib/budget-closing'
+import { forecastPeriod, pendingCommitments, type Advice } from '../../../lib/budget-forecast'
+import type { RecurringOccurrence } from '../../../lib/recurring-payments'
 import { spendingDonutSegments } from '../../../lib/budget-chart'
 
 const CATEGORY_ICONS: Record<ExpenseCategory, LucideIcon> = {
@@ -242,6 +246,20 @@ function ExpenseEditor({
 type PlanningEdit =
   | { kind: 'income'; income?: MobileBudgetIncome; recurringReceive?: boolean }
   | { kind: 'plannedExpense'; plannedExpense?: MobilePlannedExpense }
+type PlanningEditWithDate = PlanningEdit & { defaultDate?: string }
+
+function forecastAdviceText(advice: Advice, currency: string): string {
+  switch (advice.kind) {
+    case 'shortfall': return `Na konci období může chybět ${money(advice.amount, currency)}.`
+    case 'postpone-savings': return `Můžete odložit plánované úspory (${money(advice.amount, currency)}).`
+    case 'trim-expenses': return `Můžete ubrat z plánovaných výdajů (${money(advice.amount, currency)}).`
+    case 'use-pocket': return advice.isReserve
+      ? `Můžete použít finanční rezervu ${advice.pocketName} (${money(advice.amount, currency)}).`
+      : `Můžete použít Kapsu ${advice.pocketName} (${money(advice.amount, currency)}).`
+    case 'carry-deficit': return `${money(advice.amount, currency)} by přešlo jako záporný převod.`
+    case 'payment-risk': return `Na splatné platby nyní chybí ${money(advice.amount, currency)}.`
+  }
+}
 
 function PlanningEditor({
   editing,
@@ -254,7 +272,7 @@ function PlanningEditor({
   onDeleteIncome,
   onDeletePlannedExpense,
 }: {
-  editing: PlanningEdit
+  editing: PlanningEditWithDate
   currency: string
   busy: boolean
   onClose: () => void
@@ -271,7 +289,7 @@ function PlanningEditor({
   const [amount, setAmount] = useState(String(income?.amount ?? plannedExpense?.amount ?? '').replace('.', ','))
   const [description, setDescription] = useState(income?.description ?? plannedExpense?.note ?? '')
   const [category, setCategory] = useState<ExpenseCategory>((plannedExpense?.category as ExpenseCategory) ?? 'Ostatní')
-  const [date, setDate] = useState(income?.occurrenceDueDate ?? income?.date ?? plannedExpense?.date ?? todayLocal())
+  const [date, setDate] = useState(income?.occurrenceDueDate ?? income?.date ?? plannedExpense?.date ?? editing.defaultDate ?? todayLocal())
   const [status, setStatus] = useState<'planned' | 'actual'>('planned')
   const [error, setError] = useState('')
 
@@ -335,16 +353,130 @@ function PlanningEditor({
   )
 }
 
+function BudgetPlanSection({
+  title,
+  summary,
+  defaultOpen = false,
+  children,
+}: {
+  title: string
+  summary: string
+  defaultOpen?: boolean
+  children: ReactNode
+}) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
+  const [open, setOpen] = useState(defaultOpen)
+  return <View style={styles.planSection}>
+    <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((current) => !current)} style={styles.planSectionHeader}>
+      <View style={styles.planSectionText}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {!open ? <Text style={styles.supporting}>{summary}</Text> : null}
+      </View>
+      <ChevronDown color={colors.mutedText} size={20} style={open ? styles.planSectionChevronOpen : undefined} />
+    </Pressable>
+    <View style={[styles.planSectionBody, !open && styles.planSectionBodyHidden]}>{children}</View>
+  </View>
+}
+
+function BudgetPlanEditor({
+  planning,
+  onClose,
+  onSave,
+}: {
+  planning: MobileBudgetPlanning
+  onClose: () => void
+  onSave: (input: { defaultBudget?: number; periodBudgets?: { period: string; amount: number | null }[]; savingsGoal?: number }) => Promise<void>
+}) {
+  const { colors } = useMobileTheme()
+  const styles = useStyles()
+  const current = planning.period.start
+  const next = planning.period.next
+  const asText = (value: number | undefined) => value == null ? '' : String(value).replace('.', ',')
+  const [defaultBudget, setDefaultBudget] = useState(asText(planning.defaultBudget))
+  const [currentBudget, setCurrentBudget] = useState(asText(planning.periodBudgets[current]))
+  const [nextBudget, setNextBudget] = useState(asText(planning.periodBudgets[next]))
+  const [savingsGoal, setSavingsGoal] = useState(asText(planning.savingsGoal))
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function save() {
+    const parse = (value: string) => value.trim() === '' ? null : Number(value.replace(/[\s ]/g, '').replace(',', '.'))
+    const nextDefault = parse(defaultBudget) ?? 0
+    const nextGoal = parse(savingsGoal) ?? 0
+    const values = [nextDefault, nextGoal, parse(currentBudget), parse(nextBudget)]
+    if (values.some((value) => value !== null && (!Number.isFinite(value) || value < 0))) {
+      setError('Rozpočet i cíl úspor musí být nezáporná částka, nebo prázdné pole.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const periodBudgets = [
+        { period: current, amount: parse(currentBudget) },
+        { period: next, amount: parse(nextBudget) },
+      ].filter((entry) => entry.amount !== (planning.periodBudgets[entry.period] ?? null))
+      await onSave({
+        ...(planning.canSetDefault && nextDefault !== planning.defaultBudget ? { defaultBudget: nextDefault } : {}),
+        ...(nextGoal !== planning.savingsGoal ? { savingsGoal: nextGoal } : {}),
+        ...(periodBudgets.length > 0 ? { periodBudgets } : {}),
+      })
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Rozpočet se nepodařilo uložit.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return <Modal animationType="slide" onRequestClose={() => !busy && onClose()} transparent visible>
+    <View style={styles.modalBackdrop}>
+      <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.editor}>
+          <View style={styles.editorHeading}><Text style={styles.editorTitle}>Upravit rozpočet</Text><Pressable accessibilityLabel="Zavřít editor rozpočtu" disabled={busy} onPress={onClose} style={styles.closeButton}><Text style={styles.closeText}>×</Text></Pressable></View>
+          <Text style={styles.supporting}>Prázdný rozpočet období použije měsíční rozpočet domácnosti.</Text>
+          <Text style={styles.label}>Měsíční rozpočet</Text>
+          <TextInput accessibilityLabel="Měsíční rozpočet" editable={planning.canSetDefault && !busy} keyboardType="decimal-pad" onChangeText={setDefaultBudget} placeholder="Nenastaven" placeholderTextColor={colors.mutedText} style={[styles.input, !planning.canSetDefault && styles.disabled]} value={defaultBudget} />
+          {!planning.canSetDefault ? <Text style={styles.supporting}>Měsíční rozpočet může měnit jen správce domácnosti.</Text> : null}
+          <Text style={styles.label}>Toto období</Text>
+          <TextInput accessibilityLabel="Rozpočet tohoto období" editable={!busy} keyboardType="decimal-pad" onChangeText={setCurrentBudget} placeholder={`Výchozí ${money(planning.defaultBudget, planning.currency)}`} placeholderTextColor={colors.mutedText} style={styles.input} value={currentBudget} />
+          <Text style={styles.label}>Příští období</Text>
+          <TextInput accessibilityLabel="Rozpočet příštího období" editable={!busy} keyboardType="decimal-pad" onChangeText={setNextBudget} placeholder={`Výchozí ${money(planning.defaultBudget, planning.currency)}`} placeholderTextColor={colors.mutedText} style={styles.input} value={nextBudget} />
+          <Text style={styles.label}>Měsíční cíl úspor</Text>
+          <TextInput accessibilityLabel="Měsíční cíl úspor" editable={!busy} keyboardType="decimal-pad" onChangeText={setSavingsGoal} placeholder="Bez cíle" placeholderTextColor={colors.mutedText} style={styles.input} value={savingsGoal} />
+          {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+          <Pressable accessibilityRole="button" disabled={busy} onPress={() => void save()} style={[styles.primaryButton, busy && styles.disabled]}><Text style={styles.primaryButtonText}>{busy ? 'Ukládám…' : 'Uložit rozpočet'}</Text></Pressable>
+        </View>
+      </ScrollView>
+    </View>
+  </Modal>
+}
+
 function BudgetPlanningScreen({
   planning,
+  ledger,
+  spent,
+  recurringPayments,
+  recurringOccurrences,
+  offset,
+  maxOffset,
+  onOffsetChange,
   busy,
   onEdit,
+  onEditBudget,
   onReceive,
   onPay,
 }: {
   planning: MobileBudgetPlanning | null
+  ledger: MobileBudgetLedger | null
+  spent: number
+  recurringPayments: RecurringPayment[]
+  recurringOccurrences: RecurringOccurrence[]
+  offset: number
+  maxOffset: number
+  onOffsetChange: (offset: number) => void
   busy: boolean
-  onEdit: (editing: PlanningEdit) => void
+  onEdit: (editing: PlanningEditWithDate) => void
+  onEditBudget: () => void
   onReceive: (income: MobileBudgetIncome) => void
   onPay: (expense: MobilePlannedExpense) => void
 }) {
@@ -355,47 +487,102 @@ function BudgetPlanningScreen({
   const receivedIncome = planning.incomes.filter((income) => income.status === 'actual')
   const openExpenses = planning.plannedExpenses.filter((expense) => expense.status === 'planned')
   const paidExpenses = planning.plannedExpenses.filter((expense) => expense.status === 'paid')
+  const receivedTotal = receivedIncome.reduce((sum, income) => sum + income.amount, 0)
+  const plannedIncomeTotal = plannedIncome.reduce((sum, income) => sum + income.amount, 0)
+  const openExpenseTotal = openExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+  const actual = periodResult({ received: receivedTotal, expenses: spent, transfers: ledger?.transfers ?? 0 }, ledger?.carryIn ?? 0)
+  const forecast = ledger ? forecastPeriod({
+    actual,
+    expectedIncome: plannedIncomeTotal,
+    commitments: pendingCommitments(recurringPayments, recurringOccurrences, planning.period.start, planning.period.end),
+    plannedExpenses: openExpenseTotal,
+    plannedTransfers: ledger.plannedTransfersLeft,
+    pockets: ledger.pockets,
+  }) : null
+  const future = offset > 0
+  function openEdit(editing: PlanningEdit) {
+    onEdit({ ...editing, defaultDate: planning!.period.start })
+  }
   return <View style={styles.section}>
-    <View style={styles.card}>
-      <Text style={styles.sectionTitle}>Příjmy</Text>
-      <View style={styles.planTotals}><Text style={styles.supporting}>Očekávané</Text><Text style={styles.value}>{money(plannedIncome.reduce((sum, income) => sum + income.amount, 0), planning.currency)}</Text></View>
-      <View style={styles.planTotals}><Text style={styles.supporting}>Přijaté</Text><Text style={styles.value}>{money(receivedIncome.reduce((sum, income) => sum + income.amount, 0), planning.currency)}</Text></View>
-      <Pressable accessibilityRole="button" onPress={() => onEdit({ kind: 'income' })} style={styles.inlineAdd}><Text style={styles.link}>＋ Přidat příjem</Text></Pressable>
+    <View style={styles.planningPeriodNav}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Předchozí období" disabled={offset <= 0 || busy} onPress={() => onOffsetChange(Math.max(0, offset - 1))} style={[styles.periodButton, (offset <= 0 || busy) && styles.periodDisabled]}><Text style={styles.periodButtonText}>‹ Předchozí</Text></Pressable>
+      <Text style={styles.periodTitle}>{future ? `Za ${offset} ${offset === 1 ? 'období' : offset < 5 ? 'období' : 'období'}` : 'Aktuální období'}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Následující období" disabled={offset >= maxOffset || busy} onPress={() => onOffsetChange(Math.min(maxOffset, offset + 1))} style={[styles.periodButton, (offset >= maxOffset || busy) && styles.periodDisabled]}><Text style={styles.periodButtonText}>Další ›</Text></Pressable>
     </View>
-    {planning.incomes.length === 0 ? <View style={styles.emptyCard}><Text style={styles.supporting}>Pro toto období zatím nejsou naplánované příjmy.</Text></View> : planning.incomes.map((income) => {
-      const recurring = income.recurringIncomeId !== null
-      const canReceive = income.date <= todayLocal()
-      return <View key={income.id} style={styles.planRow}>
-        <Pressable accessibilityRole={income.editable ? 'button' : undefined} disabled={!income.editable} onPress={() => onEdit({ kind: 'income', income })} style={styles.planCopy}>
-          <Text numberOfLines={1} style={styles.expenseNote}>{income.description || 'Příjem'}</Text>
-          <Text style={styles.supporting}>{income.status === 'actual' ? 'Přijato' : `Očekáváno ${dateLabel(income.date)}`}{recurring ? ' · pravidelný příjem' : ''}</Text>
-        </Pressable>
-        <Text style={styles.expenseAmount}>{money(income.amount, planning.currency)}</Text>
-        {income.status === 'planned' && canReceive ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => recurring ? onEdit({ kind: 'income', income, recurringReceive: true }) : onReceive(income)} style={styles.smallAction}><Text style={styles.smallActionText}>Přijato</Text></Pressable> : null}
-      </View>
-    })}
+    <View style={styles.card}>
+      <Text style={styles.cardEyebrow}>{future ? 'PLÁN BUDOUCÍHO OBDOBÍ' : 'PLÁN A ÚSPORY'}</Text>
+      <Text style={styles.sectionTitle}>{planning.budget > 0 ? money(planning.budget, planning.currency) : 'Rozpočet není nastaven'}</Text>
+      <Text style={styles.supporting}>{planning.period.start} – {planning.period.end}{planning.savingsGoal > 0 ? ` · cíl úspor ${money(planning.savingsGoal, planning.currency)}` : ''}</Text>
+      {!future ? <Pressable accessibilityRole="button" onPress={onEditBudget} style={styles.secondaryInlineAction}><Text style={styles.link}>Upravit rozpočet</Text></Pressable> : <Text style={styles.note}>Budoucí období používá rozpočet nastavený pro jeho začátek. Nové položky se ukládají k prvnímu dni období.</Text>}
+    </View>
 
-    <View style={styles.card}>
-      <Text style={styles.sectionTitle}>Plánované výdaje</Text>
-      <View style={styles.planTotals}><Text style={styles.supporting}>Čeká na zaplacení</Text><Text style={styles.value}>{money(openExpenses.reduce((sum, expense) => sum + expense.amount, 0), planning.currency)}</Text></View>
-      <Pressable accessibilityRole="button" onPress={() => onEdit({ kind: 'plannedExpense' })} style={styles.inlineAdd}><Text style={styles.link}>＋ Přidat plánovaný výdaj</Text></Pressable>
-    </View>
-    {planning.plannedExpenses.length === 0 ? <View style={styles.emptyCard}><Text style={styles.supporting}>Pro toto období zatím nejsou plánované výdaje.</Text></View> : planning.plannedExpenses.map((expense) => (
-      <View key={expense.id} style={styles.planRow}>
-        <Pressable accessibilityRole={expense.status === 'planned' ? 'button' : undefined} disabled={expense.status === 'paid'} onPress={() => onEdit({ kind: 'plannedExpense', plannedExpense: expense })} style={styles.planCopy}>
-          <Text numberOfLines={1} style={styles.expenseNote}>{expense.note || expense.category}</Text>
-          <Text style={styles.supporting}>{expense.status === 'paid' ? 'Zaplaceno' : `${expense.category} · ${dateLabel(expense.date)}`}</Text>
-        </Pressable>
-        <Text style={styles.expenseAmount}>{money(expense.amount, planning.currency)}</Text>
-        {expense.status === 'planned' ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => onPay(expense)} style={styles.smallAction}><Text style={styles.smallActionText}>Zaplaceno</Text></Pressable> : null}
+    {forecast && !future ? <>
+      <View style={styles.forecastCard}>
+        <Text style={styles.cardEyebrow}>SKUTEČNĚ</Text>
+        <Text style={styles.sectionTitle}>Skutečný zůstatek {money(actual, planning.currency)}</Text>
+        <Text style={styles.supporting}>Přijaté příjmy {money(receivedTotal, planning.currency)} · zaplacené výdaje {money(spent, planning.currency)} · Kapsy {money(ledger?.transfers ?? 0, planning.currency)}</Text>
       </View>
-    ))}
-    {paidExpenses.length > 0 ? <Text style={styles.supporting}>{paidExpenses.length} plánovaných výdajů už bylo zaplaceno a započítáno do skutečných výdajů.</Text> : null}
+      <View style={styles.forecastCard}>
+        <Text style={styles.sectionTitle}>Odhad konce období</Text>
+        <Text style={styles.supporting}>Počítá jen známé příjmy, platby a plánované výdaje. Běžné budoucí nákupy neodhaduje.</Text>
+        <View style={styles.forecastGrid}>
+          <View style={styles.forecastStat}><Text style={styles.supporting}>Predikovaný zůstatek</Text><Text style={[styles.value, forecast.predicted < 0 && styles.over]}>{money(forecast.predicted, planning.currency)}</Text></View>
+          <View style={styles.forecastStat}><Text style={styles.supporting}>Dostupné peníze</Text><Text style={[styles.value, forecast.available < 0 && styles.over]}>{money(forecast.available, planning.currency)}</Text></View>
+          <View style={styles.forecastStat}><Text style={styles.supporting}>Očekávané příjmy</Text><Text style={styles.value}>{money(forecast.expectedIncome, planning.currency)}</Text></View>
+          <View style={styles.forecastStat}><Text style={styles.supporting}>Rezervováno na platby</Text><Text style={styles.value}>{money(forecast.reserved, planning.currency)}</Text></View>
+        </View>
+        {forecast.advice.length ? <View style={styles.adviceList}>{forecast.advice.map((advice, index) => <Text key={`${advice.kind}-${index}`} style={styles.adviceText}>• {forecastAdviceText(advice, planning.currency)}</Text>)}<Text style={styles.note}>Jde jen o návrhy. ANITKA nic nepřesune bez potvrzení.</Text></View> : null}
+      </View>
+    </> : null}
+
+    <BudgetPlanSection
+      title="Příjmy"
+      summary={planning.incomes.length === 0 ? 'Zatím žádné' : `Přijato ${money(receivedTotal, planning.currency)} · čeká ${money(plannedIncomeTotal, planning.currency)}`}
+    >
+      <View style={styles.card}>
+        <View style={styles.planTotals}><Text style={styles.supporting}>Očekávané</Text><Text style={styles.value}>{money(plannedIncomeTotal, planning.currency)}</Text></View>
+        <View style={styles.planTotals}><Text style={styles.supporting}>Přijaté</Text><Text style={styles.value}>{money(receivedTotal, planning.currency)}</Text></View>
+        <Pressable accessibilityRole="button" onPress={() => openEdit({ kind: 'income' })} style={styles.inlineAdd}><Text style={styles.link}>＋ Přidat příjem</Text></Pressable>
+      </View>
+      {planning.incomes.length === 0 ? <View style={styles.emptyCard}><Text style={styles.supporting}>Pro toto období zatím nejsou naplánované příjmy.</Text></View> : planning.incomes.map((income) => {
+        const recurring = income.recurringIncomeId !== null
+        const canReceive = income.date <= todayLocal()
+        return <View key={income.id} style={styles.planRow}>
+          <Pressable accessibilityRole={income.editable ? 'button' : undefined} disabled={!income.editable} onPress={() => openEdit({ kind: 'income', income })} style={styles.planCopy}>
+            <Text numberOfLines={1} style={styles.expenseNote}>{income.description || 'Příjem'}</Text>
+            <Text style={styles.supporting}>{income.status === 'actual' ? 'Přijato' : `Očekáváno ${dateLabel(income.date)}`}{recurring ? ' · pravidelný příjem' : ''}</Text>
+          </Pressable>
+          <Text style={styles.expenseAmount}>{money(income.amount, planning.currency)}</Text>
+          {income.status === 'planned' && canReceive && !future ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => recurring ? openEdit({ kind: 'income', income, recurringReceive: true }) : onReceive(income)} style={styles.smallAction}><Text style={styles.smallActionText}>Přijato</Text></Pressable> : null}
+        </View>
+      })}
+    </BudgetPlanSection>
+
+    <BudgetPlanSection
+      title="Plánované výdaje"
+      summary={planning.plannedExpenses.length === 0 ? 'Zatím žádné' : `Čeká ${money(openExpenseTotal, planning.currency)}${paidExpenses.length ? ` · zaplaceno ${paidExpenses.length}` : ''}`}
+    >
+      <View style={styles.card}>
+        <View style={styles.planTotals}><Text style={styles.supporting}>Čeká na zaplacení</Text><Text style={styles.value}>{money(openExpenseTotal, planning.currency)}</Text></View>
+        <Pressable accessibilityRole="button" onPress={() => openEdit({ kind: 'plannedExpense' })} style={styles.inlineAdd}><Text style={styles.link}>＋ Přidat plánovaný výdaj</Text></Pressable>
+      </View>
+      {planning.plannedExpenses.length === 0 ? <View style={styles.emptyCard}><Text style={styles.supporting}>Pro toto období zatím nejsou plánované výdaje.</Text></View> : planning.plannedExpenses.map((expense) => (
+        <View key={expense.id} style={styles.planRow}>
+          <Pressable accessibilityRole={expense.status === 'planned' ? 'button' : undefined} disabled={expense.status === 'paid'} onPress={() => openEdit({ kind: 'plannedExpense', plannedExpense: expense })} style={styles.planCopy}>
+            <Text numberOfLines={1} style={styles.expenseNote}>{expense.note || expense.category}</Text>
+            <Text style={styles.supporting}>{expense.status === 'paid' ? 'Zaplaceno' : `${expense.category} · ${dateLabel(expense.date)}`}</Text>
+          </Pressable>
+          <Text style={styles.expenseAmount}>{money(expense.amount, planning.currency)}</Text>
+          {expense.status === 'planned' && !future ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => onPay(expense)} style={styles.smallAction}><Text style={styles.smallActionText}>Zaplaceno</Text></Pressable> : null}
+        </View>
+      ))}
+      {paidExpenses.length > 0 ? <Text style={styles.supporting}>{paidExpenses.length} plánovaných výdajů už bylo zaplaceno a započítáno do skutečných výdajů.</Text> : null}
+    </BudgetPlanSection>
     <Text style={styles.note}>Plánované částky se nepočítají do skutečného zůstatku, dokud příjem nepotvrdíte nebo výdaj nezaplatíte.</Text>
   </View>
 }
 
-export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManageBudget = false, guideStepId }: { onAuthExpired: () => void; quickAddExpenseToken?: number; canManageBudget?: boolean; guideStepId?: string | null }) {
+export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, budgetPlanningToken = 0, canManageBudget = false, guideStepId }: { onAuthExpired: () => void; quickAddExpenseToken?: number; budgetPlanningToken?: number; canManageBudget?: boolean; guideStepId?: string | null }) {
   const { colors, theme } = useMobileTheme()
   const styles = useStyles()
   const [summary, setSummary] = useState<MobileBudgetSummary | null>(null)
@@ -415,7 +602,9 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
   const [view, setView] = useState<'overview' | 'expenses' | 'planning' | 'recurring'>('overview')
   const [categoryFilter, setCategoryFilter] = useState<ExpenseCategory | null>(null)
   const [editorExpense, setEditorExpense] = useState<MobileExpense | null>(null)
-  const [editingPlan, setEditingPlan] = useState<PlanningEdit | null>(null)
+  const [editingPlan, setEditingPlan] = useState<PlanningEditWithDate | null>(null)
+  const [planningOffset, setPlanningOffset] = useState(0)
+  const [budgetEditorOpen, setBudgetEditorOpen] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const [limitsOpen, setLimitsOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -432,6 +621,7 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
         : guideStepId === 'recurring' ? 'recurring'
           : guideStepId === 'budget' ? 'overview' : null
     if (guideView) setView(guideView)
+    if (guideView === 'planning') setPlanningOffset(0)
   }, [guideStepId])
 
   useEffect(() => {
@@ -457,6 +647,33 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
       setEditorOpen(true)
     }
   }, [quickAddExpenseToken])
+
+  useEffect(() => {
+    if (budgetPlanningToken > 0) {
+      setView('planning')
+      setPlanningOffset(0)
+      setBudgetEditorOpen(true)
+    }
+  }, [budgetPlanningToken])
+
+  const maxPlanningOffset = Math.max(0, Math.min(12, (outlook?.periods.length ?? 1) - 1))
+  const planningPeriodStart = planningOffset > 0 ? outlook?.periods[planningOffset]?.periodStart : null
+
+  useEffect(() => {
+    if (view !== 'planning' || !planningPeriodStart) return
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    getBudgetPlanning(planningPeriodStart).then((next) => {
+      if (!cancelled) setPlanning(next)
+    }).catch((caught: unknown) => {
+      if (!cancelled) setError(caught instanceof Error ? caught.message : 'Budoucí období se nepodařilo načíst.')
+      if (!cancelled && caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    }).finally(() => {
+      if (!cancelled) setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [onAuthExpired, planningPeriodStart, view])
 
   const load = useCallback(async (requestedPeriod?: string) => {
     setLoading(true)
@@ -520,6 +737,7 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
       await action()
       setEditingPlan(null)
       await load(selectedPeriod ?? period?.start)
+      if (planningPeriodStart) setPlanning(await getBudgetPlanning(planningPeriodStart))
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Plán rozpočtu se nepodařilo uložit.')
       if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
@@ -657,18 +875,20 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
     <>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.scroll}>
         <View style={styles.heading}>
-          <View style={styles.headingText}>
-            <Text numberOfLines={1} style={styles.title}>Rozpočet domácnosti</Text>
-            {period ? <Text style={styles.supporting}>{dateLabel(period.start)} – {dateLabel(period.end)}</Text> : null}
+          <View style={styles.headingTop}>
+            <View style={styles.headingText}>
+              <Text style={styles.title}>Rozpočet domácnosti</Text>
+              {period ? <Text style={styles.supporting}>{dateLabel(period.start)} – {dateLabel(period.end)}</Text> : null}
+            </View>
+            <RefreshButton loading={loading} onPress={() => void load()} />
           </View>
-          <Pressable ref={addExpenseGuideTarget} accessibilityRole="button" disabled={!period || saving} onPress={() => { setEditorExpense(null); setEditorOpen(true) }} style={[styles.addButton, (!period || saving) && styles.disabled]}><Text style={styles.addButtonText}>＋ Výdaj</Text></Pressable>
-          <RefreshButton loading={loading} onPress={() => void load()} />
+          <Pressable ref={addExpenseGuideTarget} accessibilityLabel="Přidat výdaj" accessibilityRole="button" disabled={!period || saving} onPress={() => { setEditorExpense(null); setEditorOpen(true) }} style={[styles.addButton, (!period || saving) && styles.disabled]}><Text style={styles.addButtonText}>＋ Přidat výdaj</Text></Pressable>
         </View>
 
         <View style={styles.switcher}>
           <Pressable ref={overviewGuideTarget} accessibilityRole="tab" accessibilityState={{ selected: view === 'overview' }} onPress={() => setView('overview')} style={[styles.switchTab, view === 'overview' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'overview' && styles.switchTextActive]}>Přehled</Text></Pressable>
           <Pressable accessibilityRole="tab" accessibilityState={{ selected: view === 'expenses' }} onPress={() => setView('expenses')} style={[styles.switchTab, view === 'expenses' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'expenses' && styles.switchTextActive]}>Výdaje</Text></Pressable>
-          <Pressable ref={planGuideTarget} accessibilityRole="tab" accessibilityState={{ selected: view === 'planning' }} onPress={() => setView('planning')} style={[styles.switchTab, view === 'planning' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'planning' && styles.switchTextActive]}>Plán</Text></Pressable>
+          <Pressable ref={planGuideTarget} accessibilityRole="tab" accessibilityState={{ selected: view === 'planning' }} onPress={() => { setPlanningOffset(0); setView('planning') }} style={[styles.switchTab, view === 'planning' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'planning' && styles.switchTextActive]}>Plán</Text></Pressable>
           <Pressable accessibilityRole="tab" accessibilityState={{ selected: view === 'recurring' }} onPress={() => setView('recurring')} style={[styles.switchTab, view === 'recurring' && styles.switchTabActive]}><Text style={[styles.switchText, view === 'recurring' && styles.switchTextActive]}>Pravidelné</Text></Pressable>
         </View>
 
@@ -677,16 +897,23 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
           <View style={styles.empty}><ActivityIndicator color={colors.primary} size="large" /><Text style={styles.supporting}>Načítání rozpočtu…</Text></View>
         ) : view === 'overview' && summary ? (
           <>
-            <View style={styles.card}>
-              <Text style={styles.label}>Rozpočet za období</Text>
-              <Text style={styles.budget}>{money(summary.budget, summary.currency)}</Text>
-              <View style={styles.row}><Text style={styles.supporting}>Skutečné výdaje</Text><Text style={styles.value}>{money(summary.spent, summary.currency)}</Text></View>
-              <View style={styles.row}>
-                <Text style={styles.supporting}>{summary.remaining >= 0 ? 'Zbývá' : 'Překročeno o'}</Text>
-                <Text style={[styles.remaining, summary.remaining < 0 && styles.over]}>{money(Math.abs(summary.remaining), summary.currency)}</Text>
-              </View>
-              {summary.budget > 0 ? <View accessibilityLabel={`Vyčerpáno ${Math.min(100, Math.max(0, (summary.spent / summary.budget) * 100)).toFixed(0)} procent rozpočtu`} style={styles.progressTrack}><View style={[styles.progress, summary.remaining < 0 && styles.progressOver, { width: `${Math.min(100, Math.max(0, (summary.spent / summary.budget) * 100))}%` }]} /></View> : null}
-            </View>
+            <NativeBudgetHero
+              budget={summary.budget}
+              currency={summary.currency}
+              onSetBudget={() => setBudgetEditorOpen(true)}
+              periodEnd={summary.period.end}
+              remaining={summary.remaining}
+              spent={summary.spent}
+              today={periodSettings?.today ?? todayLocal()}
+            />
+            <NativeBudgetAllowances
+              budget={summary.budget}
+              currency={summary.currency}
+              onSetBudget={() => setBudgetEditorOpen(true)}
+              periodEnd={summary.period.end}
+              spent={summary.spent}
+              today={periodSettings?.today ?? todayLocal()}
+            />
             {overview ? <View style={styles.card}>
               <Text style={styles.sectionTitle}>Srovnání a očekávání</Text>
               {overview.comparison ? <View style={styles.budgetInsight}><Text style={styles.label}>{overview.comparison.changePercent <= 0 ? 'Utrácíte méně' : 'Utrácíte více'} než ve stejné části minulého období</Text><Text style={styles.value}>{money(overview.comparison.current, summary.currency)} oproti {money(overview.comparison.previous, summary.currency)} ({overview.comparison.changePercent > 0 ? '+' : ''}{overview.comparison.changePercent.toFixed(0)} %)</Text></View> : <Text style={styles.supporting}>Srovnání se zobrazí, až budou výdaje zaznamenané i v předchozím období.</Text>}
@@ -761,44 +988,71 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
           </View>
         ) : view === 'planning' ? <View style={styles.section}><BudgetPlanningScreen
           busy={saving}
+          ledger={ledger}
           onEdit={setEditingPlan}
+          onEditBudget={() => setBudgetEditorOpen(true)}
+          onOffsetChange={(next) => { setPlanningOffset(Math.max(0, Math.min(maxPlanningOffset, next))); if (next === 0) void load(selectedPeriod ?? period?.start) }}
           onPay={(expense) => { Alert.alert('Označit jako zaplacené?', `${expense.note || expense.category} · ${money(expense.amount, planning?.currency ?? 'CZK')}`, [{ text: 'Zrušit', style: 'cancel' }, { text: 'Zaplaceno', onPress: () => void mutatePlanning(() => payPlannedExpense(expense.id)) }]) }}
           onReceive={(income) => { Alert.alert('Potvrdit přijatý příjem?', `${income.description} · ${money(income.amount, planning?.currency ?? 'CZK')}`, [{ text: 'Zrušit', style: 'cancel' }, { text: 'Přijato', onPress: () => void mutatePlanning(() => receiveBudgetIncome(income.id)) }]) }}
           planning={planning}
-        />{recurringIncomes ? <RecurringIncomesScreen
-          busy={saving}
-          currency={planning?.currency ?? summary?.currency ?? 'CZK'}
-          onConfirm={(id, dueDate, amount, date) => mutateRecurringIncome(() => confirmRecurringIncome(id, dueDate, amount, date))}
-          onSave={saveRecurringIncome}
-          onSkip={(id, dueDate) => mutateRecurringIncome(() => skipRecurringIncome(id, dueDate))}
-          onStop={(income) => mutateRecurringIncome(() => stopRecurringIncome(income.id))}
-          occurrences={recurringIncomes.occurrences}
-          payments={recurringIncomes.payments}
-          today={recurringIncomes.today}
-        /> : <View style={styles.empty}><ActivityIndicator color={colors.primary} /><Text style={styles.supporting}>Načítání pravidelných příjmů…</Text></View>}{ledger ? <PocketsScreen
-          availableToSave={ledger.availableToSave}
-          busy={saving}
-          currency={summary?.currency ?? 'CZK'}
-          onArchive={(pocket) => mutatePocket(() => archivePocket(pocket.id))}
-          onSave={savePocket}
-          onTransfer={(pocket, direction, amount) => mutatePocket(() => transferPocket(pocket.id, direction, amount))}
-          pockets={ledger.pockets}
-        /> : <View style={styles.empty}><ActivityIndicator color={colors.primary} /><Text style={styles.supporting}>Načítání Kapes…</Text></View>}{ledger ? <BudgetAdvancedScreen
-          canManage={canManageBudget}
-          currency={summary?.currency ?? 'CZK'}
-          history={history}
-          ledger={ledger}
-          onClosePeriod={(input) => mutateAdvanced(() => closeBudgetPeriod(input))}
-          onOpenExpenses={openHistoryExpenses}
-          onReopenPeriod={(periodStart) => mutateAdvanced(() => reopenBudgetPeriod(periodStart))}
-          onSaveCarry={(periodStart, amount) => mutateAdvanced(() => setPlannedCarry(periodStart, amount))}
-          onSavePeriod={(nextPeriod: PeriodConfig) => mutateAdvanced(() => updateBudgetPeriod(nextPeriod))}
-          outlook={outlook}
-          occurrences={recurring?.occurrences ?? []}
-          payments={recurring?.payments ?? []}
-          settings={periodSettings}
-          busy={saving}
-        /> : <View style={styles.empty}><ActivityIndicator color={colors.primary} /><Text style={styles.supporting}>Načítání přehledu období…</Text></View>}</View> : view === 'recurring' ? recurring ? <RecurringPaymentsScreen
+          offset={planningOffset}
+          maxOffset={maxPlanningOffset}
+          recurringOccurrences={recurring?.occurrences ?? []}
+          recurringPayments={recurring?.payments ?? []}
+          spent={summary?.spent ?? 0}
+        />
+        {planningOffset === 0 ? <BudgetPlanSection
+          title="Pravidelné příjmy"
+          summary={recurringIncomes ? `${recurringIncomes.payments.length} pravidelných příjmů` : 'Načítání…'}
+        >
+          {recurringIncomes ? <RecurringIncomesScreen
+            busy={saving}
+            currency={planning?.currency ?? summary?.currency ?? 'CZK'}
+            onConfirm={(id, dueDate, amount, date) => mutateRecurringIncome(() => confirmRecurringIncome(id, dueDate, amount, date))}
+            onSave={saveRecurringIncome}
+            onSkip={(id, dueDate) => mutateRecurringIncome(() => skipRecurringIncome(id, dueDate))}
+            onStop={(income) => mutateRecurringIncome(() => stopRecurringIncome(income.id))}
+            occurrences={recurringIncomes.occurrences}
+            payments={recurringIncomes.payments}
+            today={recurringIncomes.today}
+          /> : <View style={styles.empty}><ActivityIndicator color={colors.primary} /><Text style={styles.supporting}>Načítání pravidelných příjmů…</Text></View>}
+        </BudgetPlanSection> : null}
+        {planningOffset === 0 ? <BudgetPlanSection
+          title="Kapsy"
+          summary={ledger ? (ledger.pockets.length ? `${ledger.pockets.length} Kapes · volné ${money(ledger.availableToSave, summary?.currency ?? 'CZK')}` : 'Zatím žádná Kapsa') : 'Načítání…'}
+        >
+          {ledger ? <PocketsScreen
+            availableToSave={ledger.availableToSave}
+            busy={saving}
+            currency={summary?.currency ?? 'CZK'}
+            onArchive={(pocket) => mutatePocket(() => archivePocket(pocket.id))}
+            onSave={savePocket}
+            onTransfer={(pocket, direction, amount) => mutatePocket(() => transferPocket(pocket.id, direction, amount))}
+            pockets={ledger.pockets}
+          /> : <View style={styles.empty}><ActivityIndicator color={colors.primary} /><Text style={styles.supporting}>Načítání Kapes…</Text></View>}
+        </BudgetPlanSection> : null}
+        {planningOffset === 0 ? <BudgetPlanSection
+          title="Výhled a nastavení období"
+          summary={periodSettings ? `Období ${dateLabel(periodSettings.currentPeriodStart)} · historie, převody a uzavření` : 'Výhled, historie a nastavení období'}
+        >
+          {ledger ? <BudgetAdvancedScreen
+            canManage={canManageBudget}
+            currency={summary?.currency ?? 'CZK'}
+            history={history}
+            ledger={ledger}
+            onClosePeriod={(input) => mutateAdvanced(() => closeBudgetPeriod(input))}
+            onOpenExpenses={openHistoryExpenses}
+            onReopenPeriod={(periodStart) => mutateAdvanced(() => reopenBudgetPeriod(periodStart))}
+            onSaveCarry={(periodStart, amount) => mutateAdvanced(() => setPlannedCarry(periodStart, amount))}
+            onSavePeriod={(nextPeriod: PeriodConfig) => mutateAdvanced(() => updateBudgetPeriod(nextPeriod))}
+            outlook={outlook}
+            occurrences={recurring?.occurrences ?? []}
+            payments={recurring?.payments ?? []}
+            settings={periodSettings}
+            busy={saving}
+          /> : <View style={styles.empty}><ActivityIndicator color={colors.primary} /><Text style={styles.supporting}>Načítání přehledu období…</Text></View>}
+        </BudgetPlanSection> : null}
+        </View> : view === 'recurring' ? recurring ? <RecurringPaymentsScreen
           busy={saving}
           currency={summary?.currency ?? 'CZK'}
           onConfirm={(id, dueDate, amount, date) => mutateRecurring(() => confirmRecurringPayment(id, dueDate, amount, date))}
@@ -812,6 +1066,22 @@ export function BudgetScreen({ onAuthExpired, quickAddExpenseToken = 0, canManag
       </ScrollView>
       {editorOpen ? <ExpenseEditor currency={summary?.currency ?? 'CZK'} expense={editorExpense} busy={saving} onClose={() => { if (!saving) { setEditorOpen(false); setEditorExpense(null) } }} onDelete={confirmDelete} onSave={(draft) => void saveExpense(draft)} /> : null}
       {limitsOpen ? <CategoryLimitsEditor busy={saving} limits={categoryLimits} onClose={() => { if (!saving) setLimitsOpen(false) }} onSave={saveCategoryLimits} /> : null}
+      {budgetEditorOpen && planning ? <BudgetPlanEditor
+        planning={planning}
+        onClose={() => { if (!saving) setBudgetEditorOpen(false) }}
+        onSave={async (input) => {
+          setSaving(true)
+          setError(null)
+          try {
+            await updateBudgetPlan(input)
+            await load(selectedPeriod ?? period?.start)
+            setBudgetEditorOpen(false)
+          } catch (caught) {
+            if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+            throw caught
+          } finally { setSaving(false) }
+        }}
+      /> : null}
       {editingPlan ? <PlanningEditor
         busy={saving}
         currency={planning?.currency ?? 'CZK'}
@@ -832,8 +1102,23 @@ function useStyles() {
   return useMemo(() => StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingBottom: 24, gap: 14 },
-  heading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  heading: { gap: 8, paddingVertical: 6 },
+  headingTop: { minHeight: 44, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
   headingText: { flex: 1, minWidth: 0 },
+  cardEyebrow: { color: colors.mutedText, fontSize: 11, fontWeight: '700', letterSpacing: 0.8 },
+  planningPeriodNav: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 2 },
+  secondaryInlineAction: { minHeight: 38, alignSelf: 'flex-start', justifyContent: 'center', paddingHorizontal: 11, borderRadius: 11, backgroundColor: colors.accentSubtle },
+  planSection: { overflow: 'hidden', borderColor: colors.border, borderWidth: 1, borderRadius: 16, backgroundColor: colors.card },
+  planSectionHeader: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 11 },
+  planSectionText: { flex: 1, minWidth: 0 },
+  planSectionBody: { gap: 8, paddingHorizontal: 12, paddingBottom: 12 },
+  planSectionBodyHidden: { display: 'none' },
+  planSectionChevronOpen: { transform: [{ rotate: '180deg' }] },
+  forecastCard: { gap: 8, borderColor: colors.border, borderWidth: 1, borderRadius: 16, backgroundColor: colors.card, padding: 14 },
+  forecastGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  forecastStat: { flexGrow: 1, flexBasis: '46%', minWidth: 0, gap: 2, borderRadius: 12, backgroundColor: colors.muted, padding: 10 },
+  adviceList: { gap: 4, borderRadius: 12, backgroundColor: colors.muted, padding: 11 },
+  adviceText: { color: colors.secondaryText, fontSize: 12, lineHeight: 18 },
   title: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
   supporting: { color: colors.secondaryText, fontSize: 13, lineHeight: 19, marginTop: 4 },
   card: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, padding: 16, gap: 12 },
@@ -879,7 +1164,7 @@ function useStyles() {
   switchTabActive: { backgroundColor: colors.card },
   switchText: { color: colors.secondaryText, fontSize: 14, fontWeight: '600' },
   switchTextActive: { color: colors.foreground },
-  addButton: { backgroundColor: colors.accentSubtle, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 9 },
+  addButton: { alignSelf: 'flex-start', backgroundColor: colors.accentSubtle, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
   addButtonText: { color: colors.accentText, fontWeight: '700', fontSize: 13 },
   periodControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
   filterRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 4 },

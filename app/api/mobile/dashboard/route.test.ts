@@ -79,6 +79,7 @@ describe('/api/mobile/dashboard', () => {
     expect(getShoppingListState).toHaveBeenCalledWith('household-1')
     expect(getMemberStoreSelection).toHaveBeenCalledWith('member-1')
     expect(getProductPricesCached).toHaveBeenCalledWith({ names: ['Mléko'], runningDeals: false })
+    expect(getStandaloneOffersCached).toHaveBeenCalledWith(['Mléko'])
   })
 
   it('requires a household before reading dashboard data', async () => {

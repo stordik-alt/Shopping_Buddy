@@ -8,7 +8,7 @@ import { useMobileTheme } from '../lib/theme'
 import { useNativeGuideTarget } from './native-guide-targets'
 import { getAccessToken } from '../lib/auth'
 import { ProductIllustration } from './product-illustration'
-import { PANTRY_QUANTITY_STEP, splitPantryReview } from '../../../lib/pantry'
+import { isPantryItemAvailable, PANTRY_QUANTITY_STEP, splitPantryReview } from '../../../lib/pantry'
 import { PANTRY_TRACKING } from '../../../lib/pantry'
 import { PRODUCT_TYPES } from '../../../lib/product-types'
 import { subcategoriesOfItem } from '../../../lib/product-subcategories'
@@ -17,6 +17,7 @@ import type { ItemCategory, PantryTracking } from '../../../lib/types'
 const QUANTITY_STEP = { ks: 1, kg: 0.1, g: 10, l: 0.1, ml: 10, dávka: 1 } as const
 const CATEGORIES = ['Potraviny', 'Drogerie', 'Děti', 'Domácnost', 'Ostatní'] as const
 type ReviewScope = 'location' | 'uncertain' | 'all'
+type PantryItemChange = Parameters<typeof updatePantryItem>[1]
 
 function quantityLabel(value: number): string {
   return value.toLocaleString('cs-CZ', { maximumFractionDigits: 3 })
@@ -36,6 +37,8 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
   const itemGuideTarget = useNativeGuideTarget('pantry-item-row')
   const [pantry, setPantry] = useState<MobilePantryState | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null)
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string | null>(null)
+  const [showConsumed, setShowConsumed] = useState(true)
   const [loading, setLoading] = useState(true)
   const [busyItemId, setBusyItemId] = useState<string | null>(null)
   const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null)
@@ -84,10 +87,23 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
   }, [load])
 
   const selected = pantry?.places.find((place) => place.key === selectedPlace)
-  const selectedItems = useMemo(
+  const itemsInPlace = useMemo(
     () => pantry?.items.filter((item) => (item.customPlaceId ? `custom:${item.customPlaceId}` : item.location) === selectedPlace) ?? [],
     [pantry, selectedPlace],
   )
+  const consumedInPlace = itemsInPlace.filter((item) => !isPantryItemAvailable(item.quantity)).length
+  const subcategoryCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of itemsInPlace) {
+      const label = item.subcategory ?? 'Nezařazeno'
+      counts.set(label, (counts.get(label) ?? 0) + 1)
+    }
+    return counts
+  }, [itemsInPlace])
+  const selectedItems = useMemo(() => itemsInPlace.filter((item) =>
+    (!subcategoryFilter || (subcategoryFilter === 'Nezařazeno' ? !item.subcategory : item.subcategory === subcategoryFilter))
+    && (showConsumed || isPantryItemAvailable(item.quantity)),
+  ), [itemsInPlace, showConsumed, subcategoryFilter])
   const reviewGroups = useMemo(() => {
     if (!pantry || !reviewScope) return []
     const inScope = reviewScope === 'all'
@@ -234,6 +250,22 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
     }
   }
 
+  async function confirmDetails(item: MobilePantryItem) {
+    if (busyItemId) return
+    setBusyItemId(item.id)
+    setError(null)
+    try {
+      await reviewPantry({ reviewedIds: [item.id], goneIds: [], quantities: [] })
+      setDetailItem(null)
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Potvrzení zásoby se nepodařilo uložit.')
+      if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
+    } finally {
+      setBusyItemId(null)
+    }
+  }
+
   async function autoCategorize() {
     if (categorizing) return
     setCategorizing(true)
@@ -278,6 +310,7 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
         try {
           await removePantryItem(item.id)
           setPantry((current) => current ? { ...current, items: current.items.filter((entry) => entry.id !== item.id) } : current)
+          setDetailItem((current) => current?.id === item.id ? null : current)
         } catch (caught) {
           setError(caught instanceof Error ? caught.message : 'Položku se nepodařilo odebrat.')
           if (caught instanceof MobileApiError && caught.status === 401) onAuthExpired()
@@ -296,10 +329,12 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
           <Text numberOfLines={1} style={styles.title}>Zásoby</Text>
           <Text style={styles.supporting}>Vyberte místo, kde jsou věci uložené.</Text>
         </View>
-        <Pressable ref={addGuideTarget} accessibilityRole="button" onPress={() => setAddOpen(true)} style={styles.addButton}><Text style={styles.addButtonText}>＋ Přidat</Text></Pressable>
-        {pantry?.items.some((item) => !item.subcategory) ? <Pressable accessibilityRole="button" disabled={categorizing} onPress={() => void autoCategorize()} style={[styles.autoButton, categorizing && styles.disabled]}><Text style={styles.autoButtonText}>{categorizing ? 'Zařazuji…' : 'Zařadit automaticky'}</Text></Pressable> : null}
-        {pantry?.items.length ? <Pressable ref={checkGuideTarget} accessibilityRole="button" onPress={() => openReview('location')} style={styles.reviewOpenButton}><ClipboardCheck color={colors.accentText} size={17} /><Text style={styles.reviewOpenText}>Kontrola</Text></Pressable> : null}
-        <RefreshButton loading={loading} onPress={() => void load()} />
+        <View style={styles.headingActions}>
+          <Pressable ref={addGuideTarget} accessibilityRole="button" onPress={() => setAddOpen(true)} style={styles.addButton}><Text style={styles.addButtonText}>＋ Přidat</Text></Pressable>
+          {pantry?.items.some((item) => !item.subcategory) ? <Pressable accessibilityRole="button" disabled={categorizing} onPress={() => void autoCategorize()} style={[styles.autoButton, categorizing && styles.disabled]}><Text style={styles.autoButtonText}>{categorizing ? 'Zařazuji…' : 'Zařadit automaticky'}</Text></Pressable> : null}
+          {pantry?.items.length ? <Pressable ref={checkGuideTarget} accessibilityRole="button" onPress={() => openReview('location')} style={styles.reviewOpenButton}><ClipboardCheck color={colors.accentText} size={17} /><Text style={styles.reviewOpenText}>Kontrola</Text></Pressable> : null}
+          <RefreshButton loading={loading} onPress={() => void load()} />
+        </View>
       </View>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
 
@@ -310,7 +345,7 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
         </View>
       ) : pantry ? (
         <>
-          <ScrollView horizontal contentContainerStyle={styles.placeList} showsHorizontalScrollIndicator={false}>
+          <View style={styles.placeList}>
             {pantry.places.map((place) => {
               const count = pantry.items.filter((item) => (item.customPlaceId ? `custom:${item.customPlaceId}` : item.location) === place.key).length
               const active = selectedPlace === place.key
@@ -320,7 +355,7 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
                   accessibilityRole="tab"
                   accessibilityState={{ selected: active }}
                   key={place.key}
-                  onPress={() => { setSelectedPlace(place.key); setEditingPlaceId(null) }}
+                  onPress={() => { setSelectedPlace(place.key); setSubcategoryFilter(null); setEditingPlaceId(null) }}
                   style={[styles.place, active && styles.placeActive]}
                 >
                   <Text style={[styles.placeName, active && styles.placeNameActive]}>{place.name}</Text>
@@ -328,9 +363,29 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
                 </Pressable>
               )
             })}
-          </ScrollView>
+          </View>
 
+          {pantry.places.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.sectionTitle}>Místa zásob nejsou dostupná</Text>
+              <Text style={styles.supporting}>Obnovte zásoby. Pokud se místa stále nezobrazí, zkontrolujte nastavení zásob v profilu.</Text>
+            </View>
+          ) : null}
           {selected ? <Text style={styles.sectionTitle}>{selected.name}</Text> : null}
+          {subcategoryCounts.size > 1 ? (
+            <ScrollView horizontal contentContainerStyle={styles.horizontalChips} showsHorizontalScrollIndicator={false}>
+              <Pressable accessibilityRole="radio" accessibilityState={{ checked: subcategoryFilter === null }} onPress={() => setSubcategoryFilter(null)} style={[styles.choiceChip, subcategoryFilter === null && styles.choiceChipActive]}><Text style={[styles.choiceText, subcategoryFilter === null && styles.choiceTextActive]}>Vše ({itemsInPlace.length})</Text></Pressable>
+              {[...subcategoryCounts.entries()].sort(([left], [right]) => left.localeCompare(right, 'cs-CZ')).map(([subcategory, count]) => {
+                const selectedSubcategory = subcategoryFilter === subcategory
+                return <Pressable key={subcategory} accessibilityRole="radio" accessibilityState={{ checked: selectedSubcategory }} onPress={() => setSubcategoryFilter(subcategory)} style={[styles.choiceChip, selectedSubcategory && styles.choiceChipActive]}><Text style={[styles.choiceText, selectedSubcategory && styles.choiceTextActive]}>{subcategory} ({count})</Text></Pressable>
+              })}
+            </ScrollView>
+          ) : null}
+          {consumedInPlace > 0 ? (
+            <Pressable accessibilityRole="button" accessibilityState={{ checked: showConsumed }} onPress={() => setShowConsumed((shown) => !shown)} style={styles.consumedToggle}>
+              <Text style={styles.consumedToggleText}>{showConsumed ? 'Skrýt spotřebované' : `Zobrazit spotřebované (${consumedInPlace})`}</Text>
+            </Pressable>
+          ) : null}
           {selectedItems.length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.sectionTitle}>Toto místo je prázdné</Text>
@@ -487,19 +542,35 @@ export function PantryScreen({ onAuthExpired, reviewToken = 0, focusedItemId, on
           </ScrollView>
         </View>
       </Modal>
-      {detailItem ? <PantryDetailEditor busy={busyItemId === detailItem.id} item={detailItem} onClose={() => !busyItemId && setDetailItem(null)} onSave={(changes) => void saveDetails(detailItem, changes)} /> : null}
+      {detailItem ? <PantryDetailEditor
+        busy={busyItemId === detailItem.id}
+        imageToken={imageToken}
+        item={detailItem}
+        placeOptions={pantry?.places ?? []}
+        onClose={() => !busyItemId && setDetailItem(null)}
+        onConfirm={() => void confirmDetails(detailItem)}
+        onRemove={() => confirmRemove(detailItem)}
+        onSave={(changes) => void saveDetails(detailItem, changes)}
+      /> : null}
     </>
   )
 }
 
-function PantryDetailEditor({ item, busy, onClose, onSave }: {
+function PantryDetailEditor({ item, busy, imageToken, placeOptions, onClose, onConfirm, onRemove, onSave }: {
   item: MobilePantryItem
   busy: boolean
+  imageToken: string | null
+  placeOptions: MobilePantryState['places']
   onClose: () => void
-  onSave: (changes: Parameters<typeof updatePantryItem>[1][]) => void
+  onConfirm: () => void
+  onRemove: () => void
+  onSave: (changes: PantryItemChange[]) => void
 }) {
   const { colors } = useMobileTheme()
   const styles = useStyles()
+  const currentPlaceKey = item.customPlaceId ? `custom:${item.customPlaceId}` : item.location
+  const [quantity, setQuantity] = useState(String(item.quantity).replace('.', ','))
+  const [placeKey, setPlaceKey] = useState(currentPlaceKey)
   const [category, setCategory] = useState<ItemCategory>(item.category)
   const [subcategory, setSubcategory] = useState<string | null>(item.subcategory)
   const [productTypeKey, setProductTypeKey] = useState<string | null>(item.productTypeKey)
@@ -519,7 +590,13 @@ function PantryDetailEditor({ item, busy, onClose, onSave }: {
   }
 
   function save() {
-    const changes: Parameters<typeof updatePantryItem>[1][] = []
+    const changes: PantryItemChange[] = []
+    if (item.contents.length === 0) {
+      const amount = parsedOptional(quantity)
+      if (amount === undefined || amount === null || amount < 0) { setError('Zadejte platné množství od nuly do dané.'); return }
+      if (amount !== item.quantity) changes.push({ quantity: amount })
+    }
+    if (placeKey !== currentPlaceKey) changes.push({ placeKey })
     if (category !== item.category) changes.push({ category })
     const priorSubcategory = category === item.category ? item.subcategory : null
     if (subcategory !== priorSubcategory) changes.push({ subcategory })
@@ -551,12 +628,55 @@ function PantryDetailEditor({ item, busy, onClose, onSave }: {
   const filteredTypes = [...PRODUCT_TYPES].sort((a, b) => a.name.localeCompare(b.name, 'cs'))
     .filter((type) => type.name.toLocaleLowerCase('cs-CZ').includes(typeQuery.trim().toLocaleLowerCase('cs-CZ')))
 
+  const trackingLabel = PANTRY_TRACKING.find((option) => option.value === item.tracking)?.label
   return <Modal animationType="slide" onRequestClose={() => !busy && onClose()} transparent visible>
     <View style={styles.modalBackdrop}>
-      <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.editor}>
-          <View style={styles.editorHeading}><Text style={styles.editorTitle}>Detail zásoby</Text><Pressable accessibilityLabel="Zavřít detail zásoby" disabled={busy} onPress={onClose} style={styles.closeButton}><X color={colors.foreground} size={20} /></Pressable></View>
-          <Text style={styles.detailItemName}>{item.name}</Text>
+      <View style={styles.detailSheet}>
+        <View style={styles.detailHeader}>
+          <View style={styles.detailHeaderText}>
+            <Text style={styles.editorTitle}>Detail zásoby</Text>
+            <Text numberOfLines={1} style={styles.detailItemName}>{item.name}</Text>
+            <Text style={styles.supporting}>{item.category}{item.subcategory ? ` ▸ ${item.subcategory}` : ''}</Text>
+          </View>
+          <Pressable accessibilityLabel="Zavřít detail zásoby" disabled={busy} onPress={onClose} style={styles.closeButton}><X color={colors.foreground} size={20} /></Pressable>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.detailContent} keyboardShouldPersistTaps="handled" nestedScrollEnabled style={styles.detailScroll}>
+          <View style={styles.detailSummary}>
+            <ProductIllustration category={item.category} imageToken={imageToken} productTypeKey={item.productTypeKey} size={72} subcategory={item.subcategory} />
+            <View style={styles.detailSummaryText}>
+              <Text style={styles.detailQuantity}>{quantityLabel(item.quantity)} {unitLabel(item.quantity, item.unit)}</Text>
+              {item.unitQuantity != null && item.unitUnit ? <Text style={styles.itemCategory}>jedno balení: {quantityLabel(item.unitQuantity)} {item.unitUnit}</Text> : null}
+              {trackingLabel ? <Text style={styles.itemCategory}>{trackingLabel}</Text> : null}
+              {item.estimateReason ? <Text style={styles.itemCategory}>Asi došlo: {item.estimateReason}</Text> : null}
+            </View>
+          </View>
+
+          {item.contents.length === 0 ? <>
+            <Text style={styles.formLabel}>Množství ({item.unit})</Text>
+            <TextInput accessibilityLabel="Přesné množství zásoby" keyboardType="decimal-pad" onChangeText={setQuantity} style={styles.input} value={quantity} />
+          </> : <>
+            <Text style={styles.formLabel}>Konkrétní produkty</Text>
+            <Text style={styles.supporting}>Celkem {quantityLabel(item.quantity)} {unitLabel(item.quantity, item.unit)}. Změny se ukládají u jednotlivých produktů.</Text>
+            {item.contents.map((content) => <View key={content.id} style={styles.contentEditor}>
+              <Text style={styles.detailItemName}>{content.name}</Text>
+              <Text style={styles.formLabel}>Množství ({unitLabel(content.quantity, content.unit)})</Text>
+              <TextInput accessibilityLabel={`Množství ${content.name}`} keyboardType="decimal-pad" onChangeText={(value) => setContentQuantities((current) => ({ ...current, [content.id]: value }))} style={styles.input} value={contentQuantities[content.id] ?? ''} />
+              <Text style={styles.formLabel}>Obsah jednoho kusu (nepovinné)</Text>
+              <TextInput accessibilityLabel={`Obsah balení ${content.name}`} keyboardType="decimal-pad" onChangeText={(value) => setContentPackageQuantities((current) => ({ ...current, [content.id]: value }))} placeholder="Neznámé" placeholderTextColor={colors.mutedText} style={styles.input} value={contentPackageQuantities[content.id] ?? ''} />
+              <ScrollView horizontal contentContainerStyle={styles.horizontalChips} showsHorizontalScrollIndicator={false}>{(['kg', 'g', 'l', 'ml', 'dávka'] as ItemUnit[]).map((unit) => <Pressable key={unit} accessibilityRole="button" accessibilityState={{ selected: contentPackageUnits[content.id] === unit }} onPress={() => setContentPackageUnits((current) => ({ ...current, [content.id]: unit }))} style={[styles.choiceChip, contentPackageUnits[content.id] === unit && styles.choiceChipActive]}><Text style={[styles.choiceText, contentPackageUnits[content.id] === unit && styles.choiceTextActive]}>{unitLabel(1, unit)}</Text></Pressable>)}</ScrollView>
+            </View>)}
+          </>}
+
+          {item.contents.length === 0 && item.unit === 'ks' ? <>
+            <Text style={styles.formLabel}>Obsah jednoho balení</Text>
+            <TextInput accessibilityLabel="Množství v jednom balení" keyboardType="decimal-pad" onChangeText={setPackageQuantity} placeholder="Neznámé" placeholderTextColor={colors.mutedText} style={styles.input} value={packageQuantity} />
+            <ScrollView horizontal contentContainerStyle={styles.horizontalChips} showsHorizontalScrollIndicator={false}>{(['kg', 'g', 'l', 'ml', 'dávka'] as ItemUnit[]).map((unit) => <Pressable key={unit} accessibilityRole="button" accessibilityState={{ selected: packageUnit === unit }} onPress={() => setPackageUnit(unit)} style={[styles.choiceChip, packageUnit === unit && styles.choiceChipActive]}><Text style={[styles.choiceText, packageUnit === unit && styles.choiceTextActive]}>{unitLabel(1, unit)}</Text></Pressable>)}</ScrollView>
+          </> : null}
+
+          <Text style={styles.formLabel}>Umístění</Text>
+          <View style={styles.chipWrap}>{placeOptions.map((place) => <Pressable key={place.key} accessibilityRole="radio" accessibilityState={{ checked: placeKey === place.key }} onPress={() => setPlaceKey(place.key)} style={[styles.choiceChip, placeKey === place.key && styles.choiceChipActive]}><Text style={[styles.choiceText, placeKey === place.key && styles.choiceTextActive]}>{place.name}</Text></Pressable>)}</View>
+
           <Text style={styles.formLabel}>Kategorie</Text>
           <View style={styles.chipWrap}>{CATEGORIES.map((value) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: category === value }} onPress={() => { setCategory(value); if (value !== category) setSubcategory(null) }} style={[styles.choiceChip, category === value && styles.choiceChipActive]}><Text style={[styles.choiceText, category === value && styles.choiceTextActive]}>{value}</Text></Pressable>)}</View>
           <Text style={styles.formLabel}>Podkategorie</Text>
@@ -573,27 +693,17 @@ function PantryDetailEditor({ item, busy, onClose, onSave }: {
           </ScrollView>
           <Text style={styles.formLabel}>Četnost kontroly</Text>
           <View style={styles.chipWrap}>{PANTRY_TRACKING.map((option) => <Pressable key={option.value} accessibilityRole="button" accessibilityState={{ selected: tracking === option.value }} onPress={() => setTracking(option.value)} style={[styles.choiceChip, tracking === option.value && styles.choiceChipActive]}><Text style={[styles.choiceText, tracking === option.value && styles.choiceTextActive]}>{option.label}</Text></Pressable>)}</View>
-
-          {item.contents.length === 0 && item.unit === 'ks' ? <>
-            <Text style={styles.formLabel}>Obsah jednoho balení</Text>
-            <TextInput accessibilityLabel="Množství v jednom balení" keyboardType="decimal-pad" onChangeText={setPackageQuantity} placeholder="Neznámé" placeholderTextColor={colors.mutedText} style={styles.input} value={packageQuantity} />
-            <ScrollView horizontal contentContainerStyle={styles.horizontalChips} showsHorizontalScrollIndicator={false}>{(['kg', 'g', 'l', 'ml', 'dávka'] as ItemUnit[]).map((unit) => <Pressable key={unit} accessibilityRole="button" accessibilityState={{ selected: packageUnit === unit }} onPress={() => setPackageUnit(unit)} style={[styles.choiceChip, packageUnit === unit && styles.choiceChipActive]}><Text style={[styles.choiceText, packageUnit === unit && styles.choiceTextActive]}>{unitLabel(1, unit)}</Text></Pressable>)}</ScrollView>
-          </> : null}
-          {item.contents.length > 0 ? <>
-            <Text style={styles.formLabel}>Obsah a velikost balení</Text>
-            {item.contents.map((content) => <View key={content.id} style={styles.contentEditor}>
-              <Text style={styles.detailItemName}>{content.name}</Text>
-              <Text style={styles.formLabel}>Množství ({unitLabel(content.quantity, content.unit)})</Text>
-              <TextInput accessibilityLabel={`Množství ${content.name}`} keyboardType="decimal-pad" onChangeText={(value) => setContentQuantities((current) => ({ ...current, [content.id]: value }))} style={styles.input} value={contentQuantities[content.id] ?? ''} />
-              <Text style={styles.formLabel}>Obsah jednoho kusu (nepovinné)</Text>
-              <TextInput accessibilityLabel={`Obsah balení ${content.name}`} keyboardType="decimal-pad" onChangeText={(value) => setContentPackageQuantities((current) => ({ ...current, [content.id]: value }))} placeholder="Neznámé" placeholderTextColor={colors.mutedText} style={styles.input} value={contentPackageQuantities[content.id] ?? ''} />
-              <ScrollView horizontal contentContainerStyle={styles.horizontalChips} showsHorizontalScrollIndicator={false}>{(['kg', 'g', 'l', 'ml', 'dávka'] as ItemUnit[]).map((unit) => <Pressable key={unit} accessibilityRole="button" accessibilityState={{ selected: contentPackageUnits[content.id] === unit }} onPress={() => setContentPackageUnits((current) => ({ ...current, [content.id]: unit }))} style={[styles.choiceChip, contentPackageUnits[content.id] === unit && styles.choiceChipActive]}><Text style={[styles.choiceText, contentPackageUnits[content.id] === unit && styles.choiceTextActive]}>{unitLabel(1, unit)}</Text></Pressable>)}</ScrollView>
-            </View>)}
-          </> : null}
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+        </ScrollView>
+
+        <View style={styles.detailFooter}>
+          <View style={styles.detailSecondaryActions}>
+            <Pressable accessibilityRole="button" disabled={busy} onPress={onConfirm} style={[styles.detailSecondaryButton, busy && styles.disabled]}><Check color={colors.accentText} size={16} /><Text style={styles.moveText}>Ještě mám</Text></Pressable>
+            <Pressable accessibilityRole="button" disabled={busy} onPress={onRemove} style={[styles.detailSecondaryButton, busy && styles.disabled]}><Text style={styles.removeText}>Odstranit</Text></Pressable>
+          </View>
           <Pressable accessibilityRole="button" disabled={busy} onPress={save} style={[styles.primaryButton, busy && styles.disabled]}><Text style={styles.primaryButtonText}>{busy ? 'Ukládám…' : 'Uložit změny'}</Text></Pressable>
         </View>
-      </ScrollView>
+      </View>
     </View>
   </Modal>
 }
@@ -603,17 +713,20 @@ function useStyles() {
   return useMemo(() => StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
-  heading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  heading: { minHeight: 58, gap: 8 },
   headingText: { flex: 1, minWidth: 0 },
+  headingActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   title: { color: colors.foreground, fontSize: 20, fontWeight: '700' },
   supporting: { color: colors.secondaryText, fontSize: 13, lineHeight: 19, marginTop: 4 },
-  placeList: { gap: 8, paddingVertical: 2, paddingRight: 8 },
-  place: { minWidth: 105, borderColor: colors.inputBorder, borderRadius: 14, borderWidth: 1, backgroundColor: colors.card, paddingHorizontal: 13, paddingVertical: 11 },
+  placeList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 2 },
+  place: { flexBasis: '30%', flexGrow: 1, minWidth: 96, borderColor: colors.inputBorder, borderRadius: 14, borderWidth: 1, backgroundColor: colors.card, paddingHorizontal: 13, paddingVertical: 11 },
   placeActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   placeName: { color: colors.primary, fontSize: 14, fontWeight: '700' },
   placeNameActive: { color: colors.primaryForeground },
   placeCount: { color: colors.secondaryText, fontSize: 12, marginTop: 4 },
   sectionTitle: { color: colors.foreground, fontSize: 17, fontWeight: '700' },
+  consumedToggle: { minHeight: 38, alignSelf: 'flex-start', justifyContent: 'center', paddingHorizontal: 12, borderColor: colors.border, borderRadius: 12, borderWidth: 1, backgroundColor: colors.card },
+  consumedToggleText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
   itemCard: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 14, gap: 10 },
   itemHeading: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12 },
   itemHeadingText: { flex: 1, minWidth: 0, gap: 3 },
@@ -644,6 +757,17 @@ function useStyles() {
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.navyOverlay },
   modalScroll: { flexGrow: 1, justifyContent: 'flex-end' },
   editor: { maxHeight: '92%', backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 30, gap: 10 },
+  detailSheet: { maxHeight: '92%', backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
+  detailHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  detailHeaderText: { flex: 1, minWidth: 0 },
+  detailScroll: { flexShrink: 1 },
+  detailContent: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 18, gap: 10 },
+  detailSummary: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 16, backgroundColor: colors.card },
+  detailSummaryText: { flex: 1, minWidth: 0, gap: 3 },
+  detailQuantity: { color: colors.foreground, fontSize: 18, fontWeight: '800' },
+  detailFooter: { gap: 8, paddingHorizontal: 18, paddingTop: 10, paddingBottom: 20, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background },
+  detailSecondaryActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  detailSecondaryButton: { minHeight: 42, flexDirection: 'row', flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 12 },
   editorHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   editorTitle: { color: colors.foreground, fontSize: 20, fontWeight: '800' },
   detailItemName: { color: colors.foreground, fontSize: 15, fontWeight: '700' },

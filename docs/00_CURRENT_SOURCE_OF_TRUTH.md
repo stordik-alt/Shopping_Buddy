@@ -81,6 +81,8 @@ Device timing (opt-in, for phones without DevTools): while `PERF_TIMING=1` is se
 
 Current audit findings include strong targeted coverage on products, prices and deals, trigram search for product names, and high index use on product_subcategories. pg_stat_statements currently does not provide enough application workload history for blind query/index conclusions.
 
+The 2026-11-03 Neon audit found normal warm household queries in the 196–214 ms range and no long-running queries. The dominant page-load problem was data transfer and serialization, not missing indexes: every page sent about 1,839 store locations (637 KB) and 492 unrelated standalone offers (108 KB). The 835 KB initial payload was reduced to about 90 KB by loading store locations only when the profile store picker or manual receipt form opens and by loading standalone offers only for products on the current shopping list. Measurements and commands are in `docs/50_DATABASE_QUERY_PERFORMANCE.md`.
+
 ## 7. Neon cost and transfer investigation
 
 Previously observed Neon usage showed data transfer materially above physical database size. This can come from repeated result transfer, imports, synchronization, catalog processing, cron jobs, or other workload. Do not attribute it to one source without evidence.

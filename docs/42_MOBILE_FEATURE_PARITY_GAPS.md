@@ -5,6 +5,75 @@
 **Kontrolovaný commit:** `4d63cea1078c85b8b32df298cd62103f681b35ce`  
 **Rozsah:** porovnání uživatelských funkcí PWA s obrazovkami a mobilním API v `apps/mobile`. Jde o kontrolu zdrojového kódu, ne o vizuální test každé funkce na telefonu.
 
+## Aktuální end-to-end audit — 2026-11-02
+
+Tato část je novější než tabulky níže a zachycuje skutečný průchod PWA a nativní Android aplikace. Původní tabulky ponechávám jako historii auditu z 2026-10-24; některé v nich uvedené mezery už byly mezitím doplněny.
+
+### Prostředí a rozsah
+
+- Checkout: `4076ad703eec` (`main`) s rozpracovanými mobilními změnami, které audit nepřepisoval.
+- PWA: Next.js 16.4.2 na `http://localhost:3000` nad izolovanou databází `shopping_buddy_test`.
+- Playwright: scénář `e2e/smoke.spec.ts` prošel (`2 passed`) s prodlouženým limitem 240 s; prošel registrací, ověřením testovacím fixture, přihlášením, průvodcem a hlavními sekcemi.
+- Android: AVD `ANITKA_API35`, Android 15, x86_64, aplikace `cz.shoppingbuddy.mobile`; build byl vytvořen příkazem `./gradlew assembleDebug -PreactNativeArchitectures=x86_64`.
+- Nativní API bylo přes `adb reverse tcp:3000 tcp:3000` připojené na lokální backend. Pro lokální auth musí být použit origin `http://localhost:3000`; `http://127.0.0.1:3000` vrací `403 INVALID_ORIGIN`.
+- Byl projit účet `mobile.audit.20261102@example.com` v domácnosti „Vizuální domácnost“ s třemi položkami seznamu, jednou položkou zásob a jedním výdajem.
+- Ověřené obrazovky v obou motivech: Domů, Nákupní seznam, Účtenky, Zásoby, Rozpočet, Plán, Akce, Obchody, Recepty, Jídelníček, Profil, chat a tři kroky průvodce.
+
+### Uložené důkazy a stav
+
+- PWA snímky: `test-results/mobile-parity/pwa/` — 30 snímků (15 obrazovek × světlý/tmavý motiv).
+- Android snímky: `test-results/mobile-parity/native/light/` a `test-results/mobile-parity/native/dark/` — 30 snímků.
+- Párové snímky a kontaktní listy: `test-results/mobile-parity/comparison/` — 30 párů a dva kontaktní listy.
+- Responzivní PWA sada: `test-results/mobile-ui-v2/` — 40 snímků ve více šířkách a motivech.
+- Playwright stav přihlášeného účtu: `test-results/mobile-audit/pwa/storage-state.json`. Jde o lokální testovací artefakt, ne o soubor k verzování.
+- Android stav zůstává v zastaveném kontejneru `anitka-avd-session`; databázový kontejner je `anitka-pg`. Oba lze znovu spustit příkazem `docker start`.
+
+### Co v Android aplikaci chybí nebo se chová odlišně
+
+| Priorita | Oblast | Zjištění | PWA jako referenční chování | Android jako místo opravy |
+|---|---|---|---|---|
+| Opraveno 2026-11-02 | Zásoby — prázdný obsah | Akce v hlavičce se snažily zůstat v jednom neflexibilním řádku; text „Zařadit automaticky“ se zlomil do vysokého bloku a odsunul místa i položky mimo obrazovku. Hlavička je nyní dvouřádková, akce se zalamují a místa používají responzivní mřížku. Ověřeno na Android emulátoru: zobrazí se šest míst, počty a položka Rýže. | Zobrazí místa s počty a kartu položky Rýže s ovládáním množství. | `apps/mobile/components/pantry-screen.tsx`. |
+| Opraveno 2026-11-02 | Nákupní seznam — zobrazení | Přidány filtry textu a kategorie, skrytí hotových položek, řazení podle názvu/priority, seskupení podle kategorie/obchodu a uložení volby v zařízení. Přidán přepínač „Nechat displej svítit“. | `components/shopping/shopping-list.tsx`, `lib/list-view-preference.ts` a wake lock v PWA. | `apps/mobile/app/index.tsx`, `apps/mobile/lib/shopping-list-view.ts`; pokryto unit testy. |
+| Opraveno 2026-11-02 | Domů — pořadí a viditelnost akcí | Rychlé akce jsou nyní hned po rozpočtu a nákupním seznamu, tedy na první obrazovce. PWA používá jednu kartu se čtyřmi ikonovými dlaždicemi; Android má stejné seskupení, rozměry dlaždic a barvu ikon místo čtyř samostatných karet. | `QuickActions` a `DashboardOverview` v PWA. | `NativeHomeScreen` v `apps/mobile/components/native-parity-screens.tsx`. |
+| Opraveno 2026-11-02 | Domů a Rozpočet — rozpočtová karta | Android používá stejný tmavý budget hero jako PWA, včetně varování od 80 %, překročení limitu, denního zůstatku, počtu dní a CTA „Nastavit rozpočet“. Domů i Rozpočet sdílejí jednu nativní komponentu. CTA z Domů otevře přímo plánování rozpočtu. | `BudgetHero` a `BudgetOverview` v PWA. | `NativeBudgetHero`; `NativeHomeScreen` a `BudgetScreen`. |
+| Opraveno 2026-11-02 | Rozpočet — doporučená útrata | Pod budget hero přibyly dvě karty „Doporučená útrata na den“ a „Doporučená útrata na týden“. Používají společný výpočet `budgetAllowances` a všechny výjimečné stavy PWA, včetně CTA „Nastavit limit“. | Dvě komponenty `AllowanceCard` v `components/budget/budget-overview.tsx`. | `NativeBudgetAllowances` v `apps/mobile/components/native-budget-hero.tsx` a přehled `BudgetScreen`. |
+| Opraveno 2026-11-02 | Rozpočet — Plán a editor | Plán používá sbalitelné karty se souhrny místo jednoho dlouhého formuláře. CTA i karta Plánu otevírají editor výchozího, aktuálního a příštího rozpočtu a cíle úspor; server validuje roli správce, aktuální/příští období a částky. | `BudgetPlanCard`, `BudgetPlanSheet` a `Panel` v PWA. | `BudgetPlanSection`, `BudgetPlanEditor`, `NativeBudgetPlanning`, `PATCH /api/mobile/budget/planning`. |
+| Opraveno 2026-11-02 | Rozpočet — skutečný stav a odhad | Nativní Plán zobrazuje skutečný zůstatek, dostupné peníze a predikovaný zůstatek konce období. Do odhadu vstupují očekávané příjmy, nezaplacené pravidelné platby, plánované výdaje a zbývající úspory; případný schodek obsahuje stejné návrhy jako PWA. | Sekce „Skutečně“ a „Odhad konce období“ nad `forecastPeriod` v `components/budget/budget-planning.tsx`. | `BudgetPlanningScreen` v `apps/mobile/components/budget-screen.tsx`. |
+| Opraveno 2026-11-02 | Profil — informační struktura | Obsah profilu je rozdělený do sbalitelných karet se shrnutím, stejně jako v PWA. Zachované jsou všechny nativní formuláře, pozvánky, audit, reset, zásoby, upozornění a nativní volba vzhledu. | `CollapsibleSection` a sekce `HouseholdProfile` v PWA. | `NativeProfileAccordion` a `NativeProfileScreen` v `apps/mobile/components/native-parity-screens.tsx`. |
+| Opraveno 2026-11-02 | Recepty — doporučení na výchozí obrazovce | Android zobrazuje stejnou zvýrazněnou akci „Co uvařit z toho, co mám doma?“ jako PWA. Doporučení se načtou přímo pod hledáním včetně pokrytí surovin a možnosti skrýt výsledky; samostatný režim „Podle zásob“ zůstává. | Callout a sekce doporučení v `components/recipes/recipes.tsx`. | `RecipesScreen` v `apps/mobile/components/recipes-screen.tsx`. |
+| Opraveno 2026-11-02 | Obchody — detail prodejny | Prodejnu lze rozbalit přímo v seznamu. Detail načte až při otevření známé produkty, označí oblíbenou prodejnu a nabídne navigaci přes Mapy a akce konkrétního řetězce. | `StoreDirectory` a `StoreProducts` v PWA. | `NativeStoresScreen`, `getStoreProductNames` a `GET /api/mobile/stores?storeLocationId=…`; Maestro otevírá detail v CI. |
+| Opraveno 2026-11-02 | Jídelníček — Jiný návrh | Každé jídlo nabízí výměnu pouze tohoto slotu. Server volá společný `regenerateMeal`, zachová zbytek týdne, porce a rozpočet a vrátí srozumitelný stav, pokud není jiný recept. | Tlačítko „Jiný návrh“ v detailu jídla v PWA. | `MealPlanScreen`, `POST /api/mobile/meal-plan/regenerate`. |
+| Opraveno 2026-11-02 | Domů — přesný cíl odkazu | Dnešní jídlo otevře konkrétní kartu Jídelníčku a zvýrazní ji. Upozornění na končící akci otevře editor odpovídající položky nákupního seznamu místo pouze obecné obrazovky. | Předávání `list-item` a `meal` cílového stavu v PWA. | `NativeHomeScreen`, navigační stav v `apps/mobile/app/index.tsx`, `MealPlanScreen`. |
+| Opraveno 2026-11-02 | Nákup — odstranění položky | Nativní řádek nabízí potvrzené smazání. `DELETE /api/mobile/shopping-list/[itemId]` ověřuje domácnost a offline fronta podporuje odstranění včetně zrušení dosud neuloženého lokálního přidání. | Tlačítko „Odstranit z nákupu“ a undo tok v PWA. | `ShoppingRow`, `removeShoppingItem`, `removeShoppingItemForHousehold`, offline fronta. |
+| Opraveno 2026-11-02 | Nákup — produkt pro konkrétní řádek | Tlačítko „Najít“ otevře produktové hledání s předvyplněným názvem a cílovou položkou. Nalezený produkt lze vybrat nebo připnout pro správný řádek a řetězec. | „Najít v obchodech“ v rozbaleném detailu položky PWA. | `ShoppingRow`, `ShoppingToolsModal` s `initialTargetItemId` a `initialQuery`; Maestro otevírá hledání v CI. |
+| Opraveno 2026-11-02 | Nákup — Vrátit zpět | Po smazání se zobrazí sedmisekundová možnost obnovení. DELETE se odloží, takže zrušení zachová původní ID, připnutí produktů a všechna metadata; jiné změny se synchronizují bez odeslání odloženého smazání. | `UndoToast` a `useUndoableRemoval` v PWA. | `HomeScreen`, odložený remove záznam, undo panel nad spodní navigací. |
+| Opraveno 2026-11-02 | Rozpočet — budoucí období | V Plánu lze přejít na další období. Android načte jeho příjmy a plánované výdaje, při vytváření použije první den období a nezobrazuje části, které patří jen aktuálnímu období. | Přepínač `offset`, `Plán budoucího období` a plánovací formuláře v PWA. | `BudgetScreen`, `BudgetPlanningScreen`, `getBudgetPlanning(period)`; Maestro otevírá budoucí období v CI. |
+| Opraveno 2026-11-03 | Nákup — scroll s filtry a vyhledáváním | Ovládací prvky seznamu, doporučení, přidávání, filtrů a nástrojů byly pevně nad `SectionList`; otevřený filtrům ponechal seznamu nulovou výšku a stránka nešla posunout. Nyní jsou součástí scrollovaného headeru stejného virtualizovaného seznamu. Řazení a seskupení mají vlastní sbalitelné nativní voliče, takže panel není zbytečně vysoký a volby se neztrácejí vodorovným posunem. | Celý obsah nákupního seznamu se v PWA posouvá jako jedna stránka; filtry jsou sbalitelné pod „Filtry a řazení“. | `HomeScreen` v `apps/mobile/app/index.tsx`. |
+| Opraveno 2026-11-03 | Zásoby — detail položky | Detail má pevnou hlavičku a akce, scrollovatelný obsah a stejný souhrn jako PWA: obrázek, přesné množství, balení a stav odhadu. Přibylo přesné množství pro jednoduchou položku, umístění, „Ještě mám“ i „Odstranit“; množství konkrétních produktů zůstává editovatelné po produktech. | `PantryDetail` v PWA (`components/shopping/pantry-detail.tsx`). | `PantryDetailEditor` v `apps/mobile/components/pantry-screen.tsx`. |
+| Opraveno 2026-11-02 | Domů, Profil a Recepty — přetečení | Datum na Domů doplňuje rok a píše český měsíc malým písmenem. Sekce Profilu se zalamují, takže je vidět i „Upozornění“. Filtry a zdroje receptů se zalamují místo vodorovného skrývání posledních voleb. | Datum, wrapované sekce a filtry v PWA. | `NativeHomeScreen`, `NativeProfileScreen` a `RecipesScreen`. |
+| Opraveno 2026-11-02 | Domů — „Dnes je důležité“ | Všechna aktuální upozornění jsou v jedné kompaktní zvýrazněné kartě s nadpisem; každý řádek zůstává samostatně klikatelný a vede na stejný cíl jako dřív. | `TodayAttention` v PWA. | `NativeHomeScreen`. |
+| Opraveno 2026-11-02 | Recepty — rychlé filtry | Android doplňuje stejnou řadu „Rychlé, Večeře, Oběd, Polévky, Maso, Těstoviny, Dezerty, Bezmasé“. Klepnutí nastaví hledaný výraz a okamžitě spustí vyhledání, stejně jako PWA. | `QUICK_FILTERS` a `applyQuickFilter` v `components/recipes/recipes.tsx`. | `RecipesScreen` v `apps/mobile/components/recipes-screen.tsx`. |
+| Opraveno 2026-11-02 | Obchody — poloha v okolí | Android nabízí volitelné foreground oprávnění a tlačítko „Použít mou polohu“. Mobilní API přijímá validované `lat`/`lng`, hledá v okruhu 5 km, vrací vzdálenost prodejen a GPS dotazy záměrně necachuje. Bez města i polohy se zobrazí stejný výchozí dotaz jako v PWA místo celostátního seznamu. | `useUserLocation`, `StoreDirectory` a `storeChainTilesAction` v PWA. | `NativeStoresScreen`, `expo-location`, `app/api/mobile/stores/route.ts`; CI grantuje oprávnění a nastavuje emulátorovou polohu Prahy. |
+| Opraveno 2026-11-02 | Zásoby — přehled a filtrování | Místa používají responzivní mřížku se šesti položkami. Přidán filtr podkategorie a přepínač zobrazení/skrytí spotřebovaných položek. | `components/shopping/pantry.tsx`. | `PantryScreen`. |
+| Opraveno 2026-11-02 | Nákup — úpravy položky | Editor nyní mění kategorii, preferovaný obchod, prioritu, poznámku, množství i jednotku. Metadata se ukládají offline frontou a mobilní route validuje povolená pole. | Detail/editace položky seznamu v PWA. | `apps/mobile/app/index.tsx`, `apps/mobile/lib/shopping-list-api.ts`, `apps/mobile/lib/offline-shopping-list.ts`, `app/api/mobile/shopping-list/[itemId]/route.ts`. |
+| Opraveno 2026-11-02 | Vizuální kompatibilita obrazovek | Domů doplňuje progres dokončení nákupního seznamu a Recepty mají zdroje/řazení pod sbalitelnými „Další filtry“ jako PWA. Hlavní přetečení, budget hero, doporučená útrata, rychlé akce, profilové accordiony, datum, rychlé filtry receptů a poloha obchodů jsou srovnané. Android záměrně používá nativní přepínače, dialogy a systémové prvky; zbývající rozdíly jsou kosmetické povahy platformy, ne funkční mezery. | Mobilní breakpointy PWA a `docs/14_MOBILE_UI_V2_SPEC.md`. | Párové screenshoty, `NativeHomeScreen`, `RecipesScreen`. |
+
+### Co bylo na Androidu ověřeno jako funkčně přítomné
+
+- Recepty už obsahují hledání, zdroje, oblíbené, nedávné, doporučení podle zásob, porce, výběr surovin a ocenění.
+- Jídelníček obsahuje vytvoření plánu, změnu porcí a označení jídla jako uvařeného.
+- Účtenky obsahují nahrání/import, kontrolu OCR i návrhy odškrtnutí nákupního seznamu.
+- Rozpočet obsahuje přehled, výdaje, plán, pravidelné platby, srovnání, projekci, úspory, kapsy i uzavření období.
+- Profil obsahuje domácnost, členy, děti, pozvánky, stravovací preference, nastavení zásob a vzhledu v rozbalovacích kartách podle PWA.
+- AI chat je dostupný, ale stejně jako v PWA oznamuje, že AI asistent zatím není připojený.
+
+### Omezení tohoto průchodu
+
+- Snímky Androidu vznikaly na softwarově virtualizovaném emulátoru. První spuštění bylo výrazně pomalejší než PWA a některé obrazovky bylo nutné přetáčet po dokončení asynchronního načtení.
+- PWA smoke scénář používá vlastní dočasný účet. Pro Android byl použit samostatný vizuální fixture účet; vizuální srovnání proto ověřuje především layout, texty a stavy, zatímco některé údaje vázané na účet se mohou lišit.
+- V lokální testovací databázi se v části seznamu obchodů objevila fixture jména typu `test-user1`; tento záznam je datová anomálie testovací databáze, nikoli potvrzená funkční mezera Android aplikace.
+- Kamera, skutečné OCR volání, push notifikace, externí odkazy, offline přechod v režimu letadlo a obnova po restartu zařízení nebyly v této lehké části auditu znovu prováděny.
+
 ## Výsledek implementace PR #622 (2026-10-25)
 
 Auditní tabulka níže zachycuje původní stav před implementací. Funkční mezery v ní uvedené jsou doplněné; její zjištění proto nepředstavují aktuálně chybějící funkce.
@@ -30,6 +99,8 @@ CI run [40249081377](https://github.com/stordik-alt/Shopping_Buddy/actions/runs/
 Kontrola úplnosti a generování dvojic samo o sobě nezaručuje shodu pixelů; kontaktní listy se před sloučením PR vizuálně kontrolují. Android běží v CI emulátoru. iOS není v CI screenshoty pokrytý a zůstává ruční kontrolou.
 
 ## Potvrzené funkční mezery
+
+> Historický seznam z auditu 2026-10-24. Řada zde uvedených položek byla následně doplněna; aktuální implementovaný stav a ověřené rozdíly jsou v tabulce „Aktuální end-to-end audit“ výše.
 
 | Priorita | Oblast | Co v mobilní aplikaci chybí | Stav PWA / ověřené místo |
 |---|---|---|---|

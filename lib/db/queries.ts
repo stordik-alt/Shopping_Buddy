@@ -1825,6 +1825,7 @@ export async function getProductPrices(scope: ProductPriceScope): Promise<Produc
  *  invented (CLAUDE.md sections 15 and 18). One row per product and chain: the cheapest offer running
  *  today. "Today" is the real date (Prague), like ingestion's, not the app's fixed demo date. */
 export async function getStandaloneOffers(today: string = ingestionDate(), productNames?: string[]): Promise<StandaloneOffer[]> {
+  if (productNames != null && productNames.length === 0) return []
   const db = getDb()
   const rows = await db.execute<{
     name: string

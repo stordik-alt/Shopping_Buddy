@@ -23,6 +23,13 @@
 
 # Shopping Buddy — Change Log
 
+## 2026-11-03 — Oprava scrollu nákupního seznamu a detailu zásob
+
+- Nákupní seznam už neponechává ovládací prvky mimo scrollovatelnou oblast. Seznamy, souhrn, doporučení, pole pro přidání, filtry, nástroje i samotné položky jsou v jedné stránce; položky zůstávají virtualizované přes `SectionList`.
+- Filtry řazení a seskupení se otevírají jako kompaktní nativní voliče. Kategorie dál používají zalamované možnosti, nikoli skryté vodorovné posouvání.
+- Detail zásoby doplňuje souhrnnou kartu s obrázkem, přesným množstvím a balením, editaci umístění a akce „Ještě mám“ a „Odstranit“. Obsah detailu se posouvá mezi pevnou hlavičkou a patičkou.
+- Ověřeno: mobilní TypeScript, Android Metro bundle a 30 testů nákupního seznamu prošly. Vizuální kontrola na Android emulátoru v tomto prostředí neproběhla, protože není připojené zařízení ani spuštěný AVD.
+
 ## 2026-11-02 — Doplnění parity Androidu s PWA
 
 - Zásoby už po otevření neposouvají celý obsah mimo obrazovku: hlavička se zalamuje a místa jsou v responzivní mřížce. Na Android emulátoru se ověřilo zobrazení všech šesti míst, počtů a položky Rýže.

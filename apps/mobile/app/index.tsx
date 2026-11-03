@@ -386,6 +386,7 @@ export default function HomeScreen() {
   const [listSort, setListSort] = useState<SortKey>('Výchozí')
   const [listGroup, setListGroup] = useState<GroupKey>('Bez seskupení')
   const [listFiltersOpen, setListFiltersOpen] = useState(false)
+  const [openListFilterPicker, setOpenListFilterPicker] = useState<'sort' | 'group' | null>(null)
   const [keepShoppingScreenAwake, setKeepShoppingScreenAwake] = useState(false)
   const [listName, setListName] = useState('Nákupní seznam')
   const [activeListId, setActiveListId] = useState('')
@@ -1271,7 +1272,14 @@ export default function HomeScreen() {
                     void saveOfflineSnapshot(next).then(() => showSnapshot(next))
                   }
                 }} /> : shoppingView === 'purchases' ? <NativePurchasesScreen /> : (
-                <>
+                <SectionList
+                  contentContainerStyle={styles.list}
+                  keyboardShouldPersistTaps="handled"
+                  keyExtractor={(item) => item.id}
+                  sections={items.length === 0 || filteredShoppingItems.length === 0 ? [] : groupedShoppingItems}
+                  stickySectionHeadersEnabled={false}
+                  style={styles.flex}
+                  ListHeaderComponent={<>
                 <View style={styles.listPicker}>
                   <View style={styles.listPickerHeading}>
                     <View style={styles.listPickerTitleWrap}>
@@ -1330,7 +1338,10 @@ export default function HomeScreen() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityState={{ expanded: listFiltersOpen }}
-                  onPress={() => setListFiltersOpen((open) => !open)}
+                  onPress={() => {
+                    setOpenListFilterPicker(null)
+                    setListFiltersOpen((open) => !open)
+                  }}
                   style={styles.filtersToggle}
                 >
                   <Text style={styles.filtersToggleText}>Filtry a řazení</Text>
@@ -1357,20 +1368,28 @@ export default function HomeScreen() {
                     </View>
 
                     <Text style={styles.filterLabel}>Řadit</Text>
-                    <View style={styles.filterChoices}>
+                    <Pressable accessibilityRole="button" accessibilityState={{ expanded: openListFilterPicker === 'sort' }} onPress={() => setOpenListFilterPicker((open) => open === 'sort' ? null : 'sort')} style={styles.filterSelect}>
+                      <Text style={styles.filterSelectText}>{listSort}</Text>
+                      <ChevronDown color={colors.secondaryText} size={17} style={openListFilterPicker === 'sort' ? styles.filtersChevronOpen : undefined} />
+                    </Pressable>
+                    {openListFilterPicker === 'sort' ? <View style={styles.filterChoices}>
                       {SORT_KEYS.map((sort) => {
                         const selected = listSort === sort
-                        return <Pressable key={sort} accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={() => setListSort(sort)} style={[styles.filterChoice, selected && styles.filterChoiceActive]}><Text style={[styles.filterChoiceText, selected && styles.filterChoiceTextActive]}>{sort}</Text></Pressable>
+                        return <Pressable key={sort} accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={() => { setListSort(sort); setOpenListFilterPicker(null) }} style={[styles.filterChoice, selected && styles.filterChoiceActive]}><Text style={[styles.filterChoiceText, selected && styles.filterChoiceTextActive]}>{sort}</Text></Pressable>
                       })}
-                    </View>
+                    </View> : null}
 
                     <Text style={styles.filterLabel}>Seskupit</Text>
-                    <View style={styles.filterChoices}>
+                    <Pressable accessibilityRole="button" accessibilityState={{ expanded: openListFilterPicker === 'group' }} onPress={() => setOpenListFilterPicker((open) => open === 'group' ? null : 'group')} style={styles.filterSelect}>
+                      <Text style={styles.filterSelectText}>{listGroup}</Text>
+                      <ChevronDown color={colors.secondaryText} size={17} style={openListFilterPicker === 'group' ? styles.filtersChevronOpen : undefined} />
+                    </Pressable>
+                    {openListFilterPicker === 'group' ? <View style={styles.filterChoices}>
                       {GROUP_KEYS.map((group) => {
                         const selected = listGroup === group
-                        return <Pressable key={group} accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={() => setListGroup(group)} style={[styles.filterChoice, selected && styles.filterChoiceActive]}><Text style={[styles.filterChoiceText, selected && styles.filterChoiceTextActive]}>{group}</Text></Pressable>
+                        return <Pressable key={group} accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={() => { setListGroup(group); setOpenListFilterPicker(null) }} style={[styles.filterChoice, selected && styles.filterChoiceActive]}><Text style={[styles.filterChoiceText, selected && styles.filterChoiceTextActive]}>{group}</Text></Pressable>
                       })}
-                    </View>
+                    </View> : null}
 
                     <View style={styles.filterActions}>
                       <Pressable accessibilityRole="button" accessibilityState={{ checked: listShowCompleted }} onPress={() => setListShowCompleted((shown) => !shown)} style={styles.filterSecondaryButton}><Text style={styles.filterSecondaryButtonText}>{listShowCompleted ? 'Skrýt hotové' : 'Zobrazit hotové'}</Text></Pressable>
@@ -1380,6 +1399,7 @@ export default function HomeScreen() {
                         setListShowCompleted(true)
                         setListSort('Výchozí')
                         setListGroup('Bez seskupení')
+                        setOpenListFilterPicker(null)
                       }} style={styles.filterSecondaryButton}><Text style={styles.filterSecondaryButtonText}>Zrušit filtry</Text></Pressable> : null}
                     </View>
                   </View>
@@ -1480,24 +1500,17 @@ export default function HomeScreen() {
                     <Text style={styles.sectionTitle}>Nic neodpovídá filtrům</Text>
                     <Text style={styles.supporting}>Změňte hledání, kategorii nebo zobrazení hotových položek.</Text>
                   </View>
-                ) : (
-                  <SectionList
-                    contentContainerStyle={styles.list}
-                    sections={groupedShoppingItems}
-                    keyExtractor={(item) => item.id}
-                    keyboardShouldPersistTaps="handled"
-                    stickySectionHeadersEnabled={false}
-                    renderSectionHeader={({ section }) => (
-                      <View style={styles.shoppingGroupHeader}>
-                        <Text style={styles.shoppingGroupTitle}>{section.title}</Text>
-                      </View>
-                    )}
-                    renderItem={({ item }) => (
-                      <ShoppingRow guideTargetRef={items.find((candidate) => !candidate.done)?.id === item.id ? shoppingItemGuideTarget : undefined} item={item} priceData={priceData} busy={busyItemId === item.id} disabled={busy || busyItemId !== null || item.done} onEdit={() => openEdit(item)} onFindProduct={() => { setShoppingToolsTarget({ itemId: item.id, name: item.name }); setShoppingToolsOpen(true) }} onRemove={() => confirmRemoveItem(item)} onToggle={() => void handleToggle(item)} />
-                    )}
-                  />
-                )}
-                </>
+                ) : null}
+                  </>}
+                  renderSectionHeader={({ section }) => (
+                    <View style={styles.shoppingGroupHeader}>
+                      <Text style={styles.shoppingGroupTitle}>{section.title}</Text>
+                    </View>
+                  )}
+                  renderItem={({ item }) => (
+                    <ShoppingRow guideTargetRef={items.find((candidate) => !candidate.done)?.id === item.id ? shoppingItemGuideTarget : undefined} item={item} priceData={priceData} busy={busyItemId === item.id} disabled={busy || busyItemId !== null || item.done} onEdit={() => openEdit(item)} onFindProduct={() => { setShoppingToolsTarget({ itemId: item.id, name: item.name }); setShoppingToolsOpen(true) }} onRemove={() => confirmRemoveItem(item)} onToggle={() => void handleToggle(item)} />
+                  )}
+                />
                 )}
               </>
             ) : activeTab === 'deals' ? (
@@ -1696,6 +1709,8 @@ function useStyles() {
   filterChoiceActive: { borderColor: colors.accent, backgroundColor: colors.accentSubtle },
   filterChoiceText: { color: colors.secondaryText, fontSize: 12, fontWeight: '600' },
   filterChoiceTextActive: { color: colors.accentText, fontWeight: '800' },
+  filterSelect: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1, backgroundColor: colors.elevated },
+  filterSelectText: { flex: 1, color: colors.foreground, fontSize: 13, fontWeight: '600' },
   filterActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 2 },
   filterSecondaryButton: { minHeight: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderColor: colors.inputBorder, borderRadius: 12, borderWidth: 1 },
   filterSecondaryButtonText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
